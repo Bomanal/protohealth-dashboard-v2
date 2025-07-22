@@ -8,35 +8,35 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* ProtoHealth inspired design system */
-    --background: 210 11% 15%;
-    --foreground: 0 0% 98%;
+    /* ProtoHealth inspired design system - Light Mode */
+    --background: 0 0% 100%;
+    --foreground: 210 11% 15%;
 
-    --card: 210 11% 18%;
-    --card-foreground: 0 0% 95%;
+    --card: 0 0% 100%;
+    --card-foreground: 210 11% 15%;
 
-    --popover: 210 11% 18%;
-    --popover-foreground: 0 0% 95%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 11% 15%;
 
     /* ProtoHealth gradient colors */
     --primary: 221 83% 53%;
     --primary-foreground: 0 0% 100%;
     --primary-light: 230 100% 70%;
 
-    --secondary: 210 11% 25%;
-    --secondary-foreground: 0 0% 90%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 210 11% 15%;
 
-    --muted: 210 11% 20%;
-    --muted-foreground: 210 11% 65%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 20% 45%;
 
-    --accent: 210 11% 25%;
-    --accent-foreground: 0 0% 90%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 210 11% 15%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 210 11% 25%;
-    --input: 210 11% 25%;
+    --border: 214 31% 91%;
+    --input: 214 31% 91%;
     --ring: 221 83% 53%;
 
     --radius: 0.75rem;
@@ -49,31 +49,33 @@ All colors MUST be HSL.
     --info: 221 83% 53%;
     --info-foreground: 0 0% 100%;
 
-    /* Sidebar specific colors */
-    --sidebar-background: 210 11% 12%;
-    --sidebar-foreground: 0 0% 85%;
+    /* Sidebar specific colors - Light */
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 210 11% 20%;
     --sidebar-primary: 221 83% 53%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 210 11% 20%;
-    --sidebar-accent-foreground: 0 0% 90%;
-    --sidebar-border: 210 11% 22%;
+    --sidebar-accent: 210 40% 94%;
+    --sidebar-accent-foreground: 210 11% 15%;
+    --sidebar-border: 214 31% 88%;
     --sidebar-ring: 221 83% 53%;
 
     /* ProtoHealth brand gradient */
     --gradient-primary: linear-gradient(135deg, hsl(221, 83%, 53%), hsl(260, 100%, 65%));
-    --gradient-subtle: linear-gradient(180deg, hsl(210, 11%, 15%), hsl(210, 11%, 18%));
+    --gradient-subtle: linear-gradient(180deg, hsl(210, 40%, 98%), hsl(210, 40%, 96%));
   }
 
-  .light {
-    /* Light mode fallback - keeping dark as primary */
-    --background: 0 0% 100%;
-    --foreground: 210 11% 15%;
-    --card: 0 0% 100%;
-    --card-foreground: 210 11% 15%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 210 11% 45%;
-    --border: 210 40% 90%;
-    --input: 210 40% 90%;
+  .dark {
+    /* Dark mode override if needed */
+    --background: 210 11% 15%;
+    --foreground: 0 0% 98%;
+    --card: 210 11% 18%;
+    --card-foreground: 0 0% 95%;
+    --muted: 210 11% 20%;
+    --muted-foreground: 210 11% 65%;
+    --border: 210 11% 25%;
+    --input: 210 11% 25%;
+    --sidebar-background: 210 11% 12%;
+    --sidebar-foreground: 0 0% 85%;
   }
 }
 

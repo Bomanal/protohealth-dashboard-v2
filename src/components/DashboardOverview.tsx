@@ -48,7 +48,7 @@ export function DashboardOverview() {
 
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <Card className="border-border/50 bg-card/50 backdrop-blur-sm hover:bg-card/80 transition-colors">
+        <Card className="border-border/50 bg-card/80 backdrop-blur-sm hover:bg-card transition-colors shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-card-foreground">Total Interactions</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
@@ -59,7 +59,7 @@ export function DashboardOverview() {
           </CardContent>
         </Card>
 
-        <Card className="border-border/50 bg-card/50 backdrop-blur-sm hover:bg-card/80 transition-colors">
+        <Card className="border-border/50 bg-card/80 backdrop-blur-sm hover:bg-card transition-colors shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-card-foreground">Needs Action</CardTitle>
             <AlertTriangle className="h-4 w-4 text-destructive" />
@@ -70,7 +70,7 @@ export function DashboardOverview() {
           </CardContent>
         </Card>
 
-        <Card className="border-border/50 bg-card/50 backdrop-blur-sm hover:bg-card/80 transition-colors">
+        <Card className="border-border/50 bg-card/80 backdrop-blur-sm hover:bg-card transition-colors shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-card-foreground">Completed</CardTitle>
             <CheckCircle className="h-4 w-4 text-success" />
@@ -81,7 +81,7 @@ export function DashboardOverview() {
           </CardContent>
         </Card>
 
-        <Card className="border-border/50 bg-card/50 backdrop-blur-sm hover:bg-card/80 transition-colors">
+        <Card className="border-border/50 bg-card/80 backdrop-blur-sm hover:bg-card transition-colors shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-card-foreground">In Queue</CardTitle>
             <Clock className="h-4 w-4 text-info" />

@@ -35,6 +35,9 @@ export default function CreateOutboundFlow() {
 
   const [step, setStep] = useState(1)
   const [interpretedQuery, setInterpretedQuery] = useState("")
+  const [followUpQuestions, setFollowUpQuestions] = useState<string[]>([])
+  const [followUpAnswers, setFollowUpAnswers] = useState<Record<string, string>>({})
+  const [showFollowUpQuestions, setShowFollowUpQuestions] = useState(false)
   const [generatedContent, setGeneratedContent] = useState({
     textMessage: "",
     callScript: "",
@@ -54,32 +57,68 @@ export default function CreateOutboundFlow() {
   }
 
   const handleContentGeneration = () => {
-    // Mock AI content generation based on objective
+    // Check if we need more information for better content generation
+    const needsMoreInfo = formData.objective.length < 50 || !formData.objective.includes("specific")
+    
+    if (needsMoreInfo && !showFollowUpQuestions) {
+      // Generate follow-up questions based on the objective and department
+      const questions = [
+        "What specific procedure or treatment are these patients receiving?",
+        "What key information should patients know before their appointment?",
+        "Are there any preparation instructions patients need to follow?",
+        "What is the expected outcome or next steps after the procedure?",
+        "Should patients bring anything specific to their appointment?"
+      ]
+      
+      setFollowUpQuestions(questions)
+      setShowFollowUpQuestions(true)
+      return
+    }
+
+    // Generate content with additional context from follow-up answers
+    const additionalContext = Object.values(followUpAnswers).join(" ")
+    const enhancedObjective = `${formData.objective} ${additionalContext}`.trim()
+    
     const mockContent = {
-      textMessage: `Hi ${formData.department === "cardiology" ? "[Patient Name]" : "[Patient Name]"}, this is ProtoHealth AI. We're reaching out about your upcoming appointment. Please reply if you have any questions about your ${formData.department === "cardiology" ? "cardiac" : "gastroenterology"} procedure.`,
+      textMessage: `Hi [Patient Name], this is ProtoHealth AI. We're reaching out about your upcoming ${formData.department} appointment. ${followUpAnswers["preparation"] ? `Please remember to ${followUpAnswers["preparation"]}` : ""} Reply if you have any questions about your ${formData.department === "cardiology" ? "cardiac" : "gastroenterology"} procedure.`,
       callScript: `Hello, this is the ProtoHealth AI assistant calling about your upcoming ${formData.department} appointment. I wanted to check if you have any questions about your procedure and ensure you're prepared. 
 
 Key points to cover:
 - Confirm appointment date and time
-- Review pre-procedure instructions
-- Address any patient concerns
-- Provide contact information for urgent questions`,
+${followUpAnswers["preparation"] ? `- Review preparation: ${followUpAnswers["preparation"]}` : "- Review pre-procedure instructions"}
+${followUpAnswers["outcome"] ? `- Discuss expected outcome: ${followUpAnswers["outcome"]}` : "- Address any patient concerns"}
+- Provide contact information for urgent questions
+${followUpAnswers["bring"] ? `- Remind to bring: ${followUpAnswers["bring"]}` : ""}`,
       email: `Subject: Your Upcoming ${formData.department === "cardiology" ? "Cardiac" : "Gastroenterology"} Appointment
 
 Dear [Patient Name],
 
 We hope this message finds you well. We're reaching out to ensure you're prepared for your upcoming appointment.
 
-${formData.objective}
+${enhancedObjective}
 
-If you have any questions or concerns, please don't hesitate to contact our team.
+${followUpAnswers["preparation"] ? `**Preparation Instructions:**
+${followUpAnswers["preparation"]}
+
+` : ""}${followUpAnswers["bring"] ? `**Please Bring:**
+${followUpAnswers["bring"]}
+
+` : ""}${followUpAnswers["outcome"] ? `**What to Expect:**
+${followUpAnswers["outcome"]}
+
+` : ""}If you have any questions or concerns, please don't hesitate to contact our team.
 
 Best regards,
 ProtoHealth AI Assistant`
     }
     
     setGeneratedContent(mockContent)
+    setShowFollowUpQuestions(false)
     setStep(3)
+  }
+
+  const handleFollowUpSubmit = () => {
+    handleContentGeneration()
   }
 
   const handleCreateFlow = () => {
@@ -259,16 +298,70 @@ ProtoHealth AI Assistant`
                 <Badge variant="outline">Last updated: 2 hours ago</Badge>
               </div>
 
-              <div className="flex gap-2">
-                <Button onClick={() => setStep(1)} variant="outline">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back
-                </Button>
-                <Button onClick={handleContentGeneration} className="flex-1">
-                  <Wand2 className="h-4 w-4 mr-2" />
-                  Generate Content
-                </Button>
-              </div>
+              {/* Follow-up Questions Section */}
+              {showFollowUpQuestions && (
+                <div className="space-y-4 p-4 bg-blue-50/50 rounded-lg border border-blue-200/50">
+                  <div className="flex items-center gap-2">
+                    <Wand2 className="h-4 w-4 text-primary" />
+                    <Label className="text-sm font-medium">Additional Information Needed</Label>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    To generate more compelling and specific communication content, please provide answers to these questions:
+                  </p>
+                  
+                  <div className="space-y-4">
+                    {followUpQuestions.map((question, index) => (
+                      <div key={index} className="space-y-2">
+                        <Label className="text-sm">{question}</Label>
+                        <Textarea
+                          placeholder="Your answer..."
+                          value={followUpAnswers[`question_${index}`] || ""}
+                          onChange={(e) => setFollowUpAnswers(prev => ({ 
+                            ...prev, 
+                            [`question_${index}`]: e.target.value,
+                            // Map specific questions to semantic keys
+                            ...(question.includes("preparation") && { preparation: e.target.value }),
+                            ...(question.includes("outcome") && { outcome: e.target.value }),
+                            ...(question.includes("bring") && { bring: e.target.value })
+                          }))}
+                          rows={2}
+                        />
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button 
+                      onClick={() => setShowFollowUpQuestions(false)} 
+                      variant="outline"
+                      size="sm"
+                    >
+                      Skip for Now
+                    </Button>
+                    <Button 
+                      onClick={handleFollowUpSubmit}
+                      size="sm"
+                      disabled={Object.keys(followUpAnswers).length === 0}
+                    >
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Generate Enhanced Content
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {!showFollowUpQuestions && (
+                <div className="flex gap-2">
+                  <Button onClick={() => setStep(1)} variant="outline">
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Back
+                  </Button>
+                  <Button onClick={handleContentGeneration} className="flex-1">
+                    <Wand2 className="h-4 w-4 mr-2" />
+                    Generate Content
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}

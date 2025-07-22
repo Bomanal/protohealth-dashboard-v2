@@ -53,13 +53,18 @@ export function AppSidebar() {
   return (
     <Sidebar className={collapsed ? "w-14" : "w-64"} collapsible="icon">
       <SidebarContent>
-        <div className="p-4">
-          <div className="flex items-center gap-2">
-            <Bot className="h-8 w-8 text-primary" />
+        <div className="p-4 border-b border-sidebar-border">
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Bot className="h-8 w-8 text-primary" />
+              <div className="absolute inset-0 h-8 w-8 bg-gradient-primary rounded-lg opacity-20" />
+            </div>
             {!collapsed && (
               <div>
-                <h1 className="text-lg font-semibold text-sidebar-primary">ProtoHealth</h1>
-                <p className="text-sm text-sidebar-foreground">NurseAssist Dashboard</p>
+                <h1 className="text-lg font-semibold bg-gradient-primary bg-clip-text text-transparent">
+                  ProtoHealth
+                </h1>
+                <p className="text-sm text-sidebar-foreground/80">NurseAssist Dashboard</p>
               </div>
             )}
           </div>

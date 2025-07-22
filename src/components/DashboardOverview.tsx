@@ -31,24 +31,26 @@ export function DashboardOverview() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Dashboard Overview</h1>
-          <p className="text-muted-foreground">Monitor AI agent activity and patient interactions</p>
+          <h1 className="text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
+            Dashboard Overview
+          </h1>
+          <p className="text-muted-foreground text-lg">Monitor AI agent activity and patient interactions</p>
         </div>
-        <div className="flex gap-2">
-          <Badge variant="outline" className="flex items-center gap-1">
-            <Bot className="h-3 w-3" />
-            4 Active Agents
+        <div className="flex gap-3">
+          <Badge variant="outline" className="flex items-center gap-2 px-4 py-2 border-primary/20 bg-primary/10">
+            <Bot className="h-4 w-4 text-primary" />
+            <span className="text-primary font-medium">4 Active Agents</span>
           </Badge>
         </div>
       </div>
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <Card className="border-border/50 bg-card/50 backdrop-blur-sm hover:bg-card/80 transition-colors">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Interactions</CardTitle>
+            <CardTitle className="text-sm font-medium text-card-foreground">Total Interactions</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -57,9 +59,9 @@ export function DashboardOverview() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-border/50 bg-card/50 backdrop-blur-sm hover:bg-card/80 transition-colors">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Needs Action</CardTitle>
+            <CardTitle className="text-sm font-medium text-card-foreground">Needs Action</CardTitle>
             <AlertTriangle className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
@@ -68,9 +70,9 @@ export function DashboardOverview() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-border/50 bg-card/50 backdrop-blur-sm hover:bg-card/80 transition-colors">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Completed</CardTitle>
+            <CardTitle className="text-sm font-medium text-card-foreground">Completed</CardTitle>
             <CheckCircle className="h-4 w-4 text-success" />
           </CardHeader>
           <CardContent>
@@ -79,9 +81,9 @@ export function DashboardOverview() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-border/50 bg-card/50 backdrop-blur-sm hover:bg-card/80 transition-colors">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">In Queue</CardTitle>
+            <CardTitle className="text-sm font-medium text-card-foreground">In Queue</CardTitle>
             <Clock className="h-4 w-4 text-info" />
           </CardHeader>
           <CardContent>

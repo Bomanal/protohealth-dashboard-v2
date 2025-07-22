@@ -11,6 +11,8 @@ import NeedsAction from "./pages/NeedsAction";
 import AllEngagements from "./pages/AllEngagements";
 import InboundTriage from "./pages/InboundTriage";
 import InboundScheduling from "./pages/InboundScheduling";
+import InboundIntake from "./pages/InboundIntake";
+import PatientInteractionDetails from "./pages/PatientInteractionDetails";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,6 +33,8 @@ const App = () => (
           <Route path="/all-engagements" element={<AllEngagements />} />
           <Route path="/inbound-triage" element={<InboundTriage />} />
           <Route path="/inbound-scheduling" element={<InboundScheduling />} />
+          <Route path="/inbound-intake" element={<InboundIntake />} />
+          <Route path="/patient-interaction/:interactionId" element={<PatientInteractionDetails />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

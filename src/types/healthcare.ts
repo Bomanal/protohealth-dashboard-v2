@@ -2,6 +2,12 @@ export type InteractionStatus = "engaged" | "message_sent" | "needs_action" | "i
 
 export type InteractionSource = "outbound_flow" | "inbound_text" | "inbound_phone" | "inbound_email" | "inbound_scheduling"
 
+export interface ConversationMessage {
+  timestamp: Date
+  speaker: string
+  message: string
+}
+
 export interface PatientInteraction {
   id: string
   patientName: string
@@ -14,6 +20,7 @@ export interface PatientInteraction {
   notes?: string
   priority: "low" | "medium" | "high"
   department: "cardiology" | "gastroenterology"
+  conversationHistory?: ConversationMessage[]
 }
 
 export interface OutboundFlow {

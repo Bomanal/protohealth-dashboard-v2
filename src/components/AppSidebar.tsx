@@ -29,7 +29,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 const manageAgentsItems = [
   { title: "Inbound Nurse Triage", url: "/inbound-triage", icon: MessageSquare },
   { title: "Inbound Scheduling", url: "/inbound-scheduling", icon: Calendar },
-  { title: "Inbound Patient Intake", url: "/inbound-intake", icon: UserPlus, comingSoon: true },
+  { title: "Inbound Patient Intake", url: "/inbound-intake", icon: UserPlus },
   { title: "Outbound Agents", url: "/outbound-agents", icon: Send },
 ]
 
@@ -83,15 +83,10 @@ export function AppSidebar() {
                 <SidebarMenu>
                   {manageAgentsItems.map((item) => (
                     <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton asChild disabled={item.comingSoon}>
+                      <SidebarMenuButton asChild>
                         <NavLink to={item.url} className={getNavCls}>
                           <item.icon className="h-4 w-4" />
-                          {!collapsed && (
-                            <span className={item.comingSoon ? "text-muted-foreground" : ""}>
-                              {item.title}
-                              {item.comingSoon && " (Coming Soon)"}
-                            </span>
-                          )}
+                          {!collapsed && <span>{item.title}</span>}
                         </NavLink>
                       </SidebarMenuButton>
                     </SidebarMenuItem>

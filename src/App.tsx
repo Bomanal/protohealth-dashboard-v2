@@ -7,6 +7,10 @@ import Index from "./pages/Index";
 import OutboundAgents from "./pages/OutboundAgents";
 import CreateOutboundFlow from "./pages/CreateOutboundFlow";
 import OutboundFlowDetails from "./pages/OutboundFlowDetails";
+import NeedsAction from "./pages/NeedsAction";
+import AllEngagements from "./pages/AllEngagements";
+import InboundTriage from "./pages/InboundTriage";
+import InboundScheduling from "./pages/InboundScheduling";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -23,6 +27,10 @@ const App = () => (
           <Route path="/outbound-agents/create" element={<CreateOutboundFlow />} />
           <Route path="/outbound-agents/:flowId" element={<OutboundFlowDetails />} />
           <Route path="/outbound-agents/:flowId/edit" element={<CreateOutboundFlow />} />
+          <Route path="/needs-action" element={<NeedsAction />} />
+          <Route path="/all-engagements" element={<AllEngagements />} />
+          <Route path="/inbound-triage" element={<InboundTriage />} />
+          <Route path="/inbound-scheduling" element={<InboundScheduling />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

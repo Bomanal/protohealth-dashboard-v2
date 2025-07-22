@@ -4,93 +4,59 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
+import { mockTriageProtocols } from "@/data/mockData"
 import { 
   MessageSquare, 
   Search, 
   Settings, 
-  Bot,
+  Plus,
   TrendingUp,
-  Clock,
   CheckCircle,
-  AlertTriangle,
-  Phone,
-  PhoneCall,
   Users,
-  Activity
+  Activity,
+  Edit,
+  Copy,
+  Trash2,
+  Heart,
+  Stethoscope,
+  FileText,
+  Calendar
 } from "lucide-react"
-
-// Mock data for inbound triage
-const mockTriageData = [
-  {
-    id: "triage-1",
-    patientName: "Sarah Johnson",
-    phoneNumber: "+1 (555) 123-4567",
-    chiefComplaint: "Chest pain and shortness of breath",
-    severity: "high",
-    waitTime: "2 mins",
-    status: "in_progress",
-    aiAssistantActive: true,
-    department: "Emergency Assessment"
-  },
-  {
-    id: "triage-2", 
-    patientName: "Michael Chen",
-    phoneNumber: "+1 (555) 234-5678",
-    chiefComplaint: "Follow-up on recent lab results",
-    severity: "low",
-    waitTime: "8 mins",
-    status: "queued",
-    aiAssistantActive: false,
-    department: "General Consultation"
-  },
-  {
-    id: "triage-3",
-    patientName: "Emma Rodriguez",
-    phoneNumber: "+1 (555) 345-6789", 
-    chiefComplaint: "Medication side effects and concerns",
-    severity: "medium",
-    waitTime: "5 mins",
-    status: "completed",
-    aiAssistantActive: true,
-    department: "Medication Review"
-  }
-]
 
 export default function InboundTriage() {
   const [searchQuery, setSearchQuery] = useState("")
-  const [selectedStatus, setSelectedStatus] = useState("all")
+  const [selectedDepartment, setSelectedDepartment] = useState("all")
 
-  const filteredCalls = mockTriageData.filter(call => {
-    const matchesSearch = call.patientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         call.chiefComplaint.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesStatus = selectedStatus === "all" || call.status === selectedStatus
-    return matchesSearch && matchesStatus
+  const filteredProtocols = mockTriageProtocols.filter(protocol => {
+    const matchesSearch = protocol.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         protocol.symptoms.some(s => s.toLowerCase().includes(searchQuery.toLowerCase()))
+    const matchesDepartment = selectedDepartment === "all" || protocol.department === selectedDepartment
+    return matchesSearch && matchesDepartment
   })
 
-  const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case "high": return "destructive"
-      case "medium": return "secondary" 
-      case "low": return "outline"
-      default: return "secondary"
+  const getDepartmentIcon = (department: string) => {
+    switch (department) {
+      case "cardiology":
+        return <Heart className="h-4 w-4 text-red-500" />
+      case "gastroenterology":
+        return <Stethoscope className="h-4 w-4 text-blue-500" />
+      default:
+        return <MessageSquare className="h-4 w-4" />
     }
   }
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "in_progress": return <Phone className="h-4 w-4 text-primary" />
-      case "completed": return <CheckCircle className="h-4 w-4 text-success" />
-      case "queued": return <Clock className="h-4 w-4 text-warning" />
-      default: return <MessageSquare className="h-4 w-4" />
-    }
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString("en-US", { 
+      month: "short", 
+      day: "numeric", 
+      year: "numeric" 
+    })
   }
 
-  const activeCallsCount = mockTriageData.filter(c => c.status === "in_progress").length
-  const queuedCallsCount = mockTriageData.filter(c => c.status === "queued").length
-  const completedTodayCount = mockTriageData.filter(c => c.status === "completed").length
-  const aiActiveCount = mockTriageData.filter(c => c.aiAssistantActive).length
+  const activeProtocolsCount = mockTriageProtocols.filter(p => p.status === "active").length
+  const cardiologyCount = mockTriageProtocols.filter(p => p.department === "cardiology").length
+  const gastroCount = mockTriageProtocols.filter(p => p.department === "gastroenterology").length
 
   return (
     <DashboardLayout>
@@ -99,20 +65,20 @@ export default function InboundTriage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              Inbound Nurse Triage
+              Inbound Triage Protocols
             </h1>
             <p className="text-muted-foreground mt-1">
-              AI-assisted phone triage and patient assessment
+              Create and manage AI triage decision trees and symptom assessments
             </p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline">
               <Settings className="h-4 w-4 mr-1" />
-              Configure AI
+              Protocol Settings
             </Button>
             <Button>
-              <PhoneCall className="h-4 w-4 mr-1" />
-              Start Shift
+              <Plus className="h-4 w-4 mr-1" />
+              Create New Protocol
             </Button>
           </div>
         </div>
@@ -122,87 +88,90 @@ export default function InboundTriage() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">
-                <Phone className="h-4 w-4 text-primary" />
-                Active Calls
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">{activeCallsCount}</div>
-              <p className="text-xs text-muted-foreground">In progress now</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Clock className="h-4 w-4 text-warning" />
-                In Queue
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-warning">{queuedCallsCount}</div>
-              <p className="text-xs text-muted-foreground">Waiting for triage</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center gap-2">
                 <CheckCircle className="h-4 w-4 text-success" />
-                Completed Today
+                Active Protocols
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-success">{completedTodayCount}</div>
-              <p className="text-xs text-muted-foreground">Successfully triaged</p>
+              <div className="text-2xl font-bold text-success">{activeProtocolsCount}</div>
+              <p className="text-xs text-muted-foreground">Currently deployed</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">
-                <Bot className="h-4 w-4 text-info" />
-                AI Assisted
+                <Heart className="h-4 w-4 text-red-500" />
+                Cardiology
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-info">{aiActiveCount}</div>
-              <p className="text-xs text-muted-foreground">Using AI support</p>
+              <div className="text-2xl font-bold">{cardiologyCount}</div>
+              <p className="text-xs text-muted-foreground">Protocols available</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Stethoscope className="h-4 w-4 text-blue-500" />
+                Gastroenterology
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{gastroCount}</div>
+              <p className="text-xs text-muted-foreground">Protocols available</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-info" />
+                Success Rate
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-info">94%</div>
+              <p className="text-xs text-muted-foreground">Protocol accuracy</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* AI Performance Metrics */}
+        {/* Performance Metrics */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              AI Assistant Performance
+              <Activity className="h-5 w-5" />
+              Protocol Performance
             </CardTitle>
-            <CardDescription>Real-time metrics for AI-assisted triage</CardDescription>
+            <CardDescription>AI triage effectiveness across all protocols</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
                 <div className="flex justify-between text-sm mb-2">
-                  <span>Accuracy Rate</span>
+                  <span>Triage Accuracy</span>
                   <span className="font-medium">94%</span>
                 </div>
                 <Progress value={94} className="h-2" />
+                <p className="text-xs text-muted-foreground mt-1">Correct initial assessments</p>
               </div>
               <div>
                 <div className="flex justify-between text-sm mb-2">
-                  <span>Average Call Duration</span>
-                  <span className="font-medium">6.2 min</span>
+                  <span>Average Assessment Time</span>
+                  <span className="font-medium">3.2 min</span>
                 </div>
-                <Progress value={85} className="h-2" />
+                <Progress value={88} className="h-2" />
+                <p className="text-xs text-muted-foreground mt-1">Time to complete triage</p>
               </div>
               <div>
                 <div className="flex justify-between text-sm mb-2">
-                  <span>Patient Satisfaction</span>
-                  <span className="font-medium">4.8/5</span>
+                  <span>Escalation Rate</span>
+                  <span className="font-medium">12%</span>
                 </div>
-                <Progress value={96} className="h-2" />
+                <Progress value={12} className="h-2" />
+                <p className="text-xs text-muted-foreground mt-1">Cases requiring human review</p>
               </div>
             </div>
           </CardContent>
@@ -213,7 +182,7 @@ export default function InboundTriage() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search patients or chief complaints..."
+              placeholder="Search protocols or symptoms..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
@@ -221,108 +190,118 @@ export default function InboundTriage() {
           </div>
           <div className="flex gap-2">
             <Button
-              variant={selectedStatus === "all" ? "default" : "outline"}
-              onClick={() => setSelectedStatus("all")}
+              variant={selectedDepartment === "all" ? "default" : "outline"}
+              onClick={() => setSelectedDepartment("all")}
               size="sm"
             >
-              All Calls
+              All Departments
             </Button>
             <Button
-              variant={selectedStatus === "in_progress" ? "default" : "outline"}
-              onClick={() => setSelectedStatus("in_progress")}
+              variant={selectedDepartment === "cardiology" ? "default" : "outline"}
+              onClick={() => setSelectedDepartment("cardiology")}
               size="sm"
             >
-              <Phone className="h-4 w-4 mr-1" />
-              Active
+              <Heart className="h-4 w-4 mr-1" />
+              Cardiology
             </Button>
             <Button
-              variant={selectedStatus === "queued" ? "default" : "outline"}
-              onClick={() => setSelectedStatus("queued")}
+              variant={selectedDepartment === "gastroenterology" ? "default" : "outline"}
+              onClick={() => setSelectedDepartment("gastroenterology")}
               size="sm"
             >
-              <Clock className="h-4 w-4 mr-1" />
-              Queued
-            </Button>
-            <Button
-              variant={selectedStatus === "completed" ? "default" : "outline"}
-              onClick={() => setSelectedStatus("completed")}
-              size="sm"
-            >
-              <CheckCircle className="h-4 w-4 mr-1" />
-              Completed
+              <Stethoscope className="h-4 w-4 mr-1" />
+              Gastro
             </Button>
           </div>
         </div>
 
-        {/* Triage Queue */}
+        {/* Protocols List */}
         <Card>
           <CardHeader>
-            <CardTitle>Triage Queue ({filteredCalls.length})</CardTitle>
-            <CardDescription>Current inbound calls and triage status</CardDescription>
+            <CardTitle>Triage Protocols ({filteredProtocols.length})</CardTitle>
+            <CardDescription>Manage your AI triage decision trees and symptom assessments</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {filteredCalls.length === 0 ? (
+              {filteredProtocols.length === 0 ? (
                 <div className="text-center py-8">
-                  <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No calls in queue</h3>
-                  <p className="text-muted-foreground">All caught up! New calls will appear here.</p>
+                  <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No protocols found</h3>
+                  <p className="text-muted-foreground mb-4">Create your first triage protocol to get started.</p>
+                  <Button>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Create New Protocol
+                  </Button>
                 </div>
               ) : (
-                filteredCalls.map((call) => (
-                  <Card key={call.id} className="hover:shadow-md transition-shadow">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4 flex-1">
+                filteredProtocols.map((protocol) => (
+                  <Card key={protocol.id} className="hover:shadow-md transition-shadow">
+                    <CardContent className="p-6">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-4 flex-1">
                           <div className="flex flex-col items-center">
-                            {getStatusIcon(call.status)}
-                            <Badge variant={getSeverityColor(call.severity)} className="mt-1 text-xs">
-                              {call.severity.toUpperCase()}
+                            {getDepartmentIcon(protocol.department)}
+                            <Badge variant={protocol.status === "active" ? "default" : "secondary"} className="mt-2 text-xs">
+                              {protocol.status.toUpperCase()}
                             </Badge>
                           </div>
                           
                           <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-2">
-                              <h4 className="font-semibold text-lg">{call.patientName}</h4>
-                              {call.aiAssistantActive && (
-                                <Badge variant="secondary" className="flex items-center gap-1">
-                                  <Bot className="h-3 w-3" />
-                                  AI Active
-                                </Badge>
-                              )}
-                              <Badge variant="outline">{call.department}</Badge>
+                            <div className="flex items-center gap-3 mb-3">
+                              <h4 className="font-semibold text-lg">{protocol.name}</h4>
+                              <Badge variant="outline" className="capitalize">
+                                {protocol.department}
+                              </Badge>
+                              <Badge variant="secondary">
+                                v{protocol.version}
+                              </Badge>
                             </div>
                             
-                            <div className="space-y-1">
-                              <p className="text-sm"><strong>Phone:</strong> {call.phoneNumber}</p>
-                              <p className="text-sm"><strong>Chief Complaint:</strong> {call.chiefComplaint}</p>
+                            <div className="space-y-2 mb-4">
+                              <div>
+                                <span className="text-sm font-medium">Symptoms Covered: </span>
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {protocol.symptoms.map((symptom, index) => (
+                                    <Badge key={index} variant="outline" className="text-xs">
+                                      {symptom}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </div>
                               <p className="text-sm text-muted-foreground">
-                                <strong>Wait Time:</strong> {call.waitTime}
+                                <strong>Created by:</strong> {protocol.createdBy}
                               </p>
+                              <p className="text-sm text-muted-foreground">
+                                <strong>Last Updated:</strong> {formatDate(protocol.lastUpdated)}
+                              </p>
+                            </div>
+
+                            <div className="flex items-center gap-4 text-sm">
+                              <div className="flex items-center gap-1">
+                                <Users className="h-4 w-4" />
+                                <span>248 patients triaged</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <CheckCircle className="h-4 w-4 text-success" />
+                                <span>94% accuracy rate</span>
+                              </div>
                             </div>
                           </div>
                         </div>
 
-                        <div className="flex flex-col gap-2">
-                          {call.status === "in_progress" ? (
-                            <Button variant="default">
-                              <Activity className="h-4 w-4 mr-1" />
-                              Monitor Call
-                            </Button>
-                          ) : call.status === "queued" ? (
-                            <Button variant="default">
-                              <Phone className="h-4 w-4 mr-1" />
-                              Answer Call
-                            </Button>
-                          ) : (
-                            <Button variant="outline">
-                              <CheckCircle className="h-4 w-4 mr-1" />
-                              View Summary
-                            </Button>
-                          )}
-                          <Button size="sm" variant="ghost">
-                            View Details
+                        <div className="flex flex-col gap-2 ml-4">
+                          <Button size="sm" variant="default">
+                            <Edit className="h-4 w-4 mr-1" />
+                            Edit Protocol
                           </Button>
+                          <div className="flex gap-1">
+                            <Button size="sm" variant="outline">
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                            <Button size="sm" variant="outline">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </CardContent>

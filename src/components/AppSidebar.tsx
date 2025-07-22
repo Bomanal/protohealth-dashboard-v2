@@ -26,11 +26,11 @@ import {
 } from "@/components/ui/sidebar"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
-const manageAgentsItems = [
-  { title: "Inbound Nurse Triage", url: "/inbound-triage", icon: MessageSquare },
+const manageProtocolsItems = [
+  { title: "Inbound Triage", url: "/inbound-triage", icon: MessageSquare },
   { title: "Inbound Scheduling", url: "/inbound-scheduling", icon: Calendar },
   { title: "Inbound Patient Intake", url: "/inbound-intake", icon: UserPlus },
-  { title: "Outbound Agents", url: "/outbound-agents", icon: Send },
+  { title: "Outbound Communications", url: "/outbound-agents", icon: Send },
 ]
 
 const patientInteractionsItems = [
@@ -42,7 +42,7 @@ export function AppSidebar() {
   const { state } = useSidebar()
   const location = useLocation()
   const currentPath = location.pathname
-  const [manageAgentsOpen, setManageAgentsOpen] = useState(true)
+  const [manageProtocolsOpen, setManageProtocolsOpen] = useState(true)
   const [patientInteractionsOpen, setPatientInteractionsOpen] = useState(true)
   const collapsed = state === "collapsed"
 
@@ -70,18 +70,18 @@ export function AppSidebar() {
           </div>
         </div>
 
-        <Collapsible open={manageAgentsOpen} onOpenChange={setManageAgentsOpen}>
+        <Collapsible open={manageProtocolsOpen} onOpenChange={setManageProtocolsOpen}>
           <SidebarGroup>
             <CollapsibleTrigger asChild>
               <SidebarGroupLabel className="flex items-center justify-between cursor-pointer hover:bg-sidebar-accent/50 rounded-md p-2">
-                {!collapsed && "Manage Agents"}
-                {!collapsed && (manageAgentsOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />)}
+                {!collapsed && "Manage Protocols"}
+                {!collapsed && (manageProtocolsOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />)}
               </SidebarGroupLabel>
             </CollapsibleTrigger>
             <CollapsibleContent>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {manageAgentsItems.map((item) => (
+                  {manageProtocolsItems.map((item) => (
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton asChild>
                         <NavLink to={item.url} className={getNavCls}>

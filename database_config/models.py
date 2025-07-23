@@ -19,7 +19,7 @@ class OutboundFlows(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, server_default=text('gen_random_uuid()'))
     name: Mapped[str] = mapped_column(String(255))
     department: Mapped[str] = mapped_column(String(50))
-    created_date: Mapped[datetime.date] = mapped_column(Date)
+    created_date: Mapped[datetime.date] = mapped_column(Date, default=datetime.date.today)
     status: Mapped[str] = mapped_column(String(20))
     description: Mapped[Optional[str]] = mapped_column(Text)
     patient_count: Mapped[Optional[int]] = mapped_column(Integer, server_default=text('0'))

@@ -26,6 +26,6 @@ dist-ssr
 # Ignore Python cache
 __pycache__/
 *.py[cod]
-
+venv/
 # Ignore environment files
 .env.local

@@ -5,6 +5,8 @@ export const mockPatientInteractions: PatientInteraction[] = [
     id: "1",
     patientName: "Sarah Johnson",
     patientId: "PT-2024-001",
+    dateOfBirth: "1975-03-15",
+    callNumber: 1,
     status: "needs_action",
     source: "outbound_flow",
     sourceDetail: "Post-Cardiac Catheterization Follow-up",
@@ -13,6 +15,8 @@ export const mockPatientInteractions: PatientInteraction[] = [
     notes: "Patient reports chest discomfort and shortness of breath. AI detected concerning symptoms in follow-up call. Requires immediate physician review.",
     priority: "high",
     department: "cardiology",
+    preliminaryDiagnosis: "Possible post-procedural complications",
+    triageOutcome: "Escalate to cardiologist",
     conversationHistory: [
       {
         timestamp: new Date("2024-01-22T08:30:00"),
@@ -45,6 +49,8 @@ export const mockPatientInteractions: PatientInteraction[] = [
     id: "2",
     patientName: "Michael Chen",
     patientId: "PT-2024-002",
+    dateOfBirth: "1968-07-22",
+    callNumber: 1,
     status: "engaged",
     source: "inbound_phone",
     timestamp: new Date("2024-01-22T09:15:00"),
@@ -52,6 +58,8 @@ export const mockPatientInteractions: PatientInteraction[] = [
     notes: "Successfully provided colonoscopy prep instructions. Patient understood all steps and scheduled prep reminder calls.",
     priority: "low",
     department: "gastroenterology",
+    preliminaryDiagnosis: "Routine colonoscopy prep",
+    triageOutcome: "Completed",
     conversationHistory: [
       {
         timestamp: new Date("2024-01-22T09:15:00"),
@@ -89,6 +97,8 @@ export const mockPatientInteractions: PatientInteraction[] = [
     id: "3",
     patientName: "Emma Williams",
     patientId: "PT-2024-003",
+    dateOfBirth: "1982-11-08",
+    callNumber: 1,
     status: "message_sent",
     source: "outbound_flow",
     sourceDetail: "Pre-Endoscopy Preparation",
@@ -97,6 +107,8 @@ export const mockPatientInteractions: PatientInteraction[] = [
     priority: "medium",
     department: "gastroenterology",
     notes: "Automated message sent with prep instructions. Patient confirmed receipt via text.",
+    preliminaryDiagnosis: "Endoscopy preparation",
+    triageOutcome: "In queue",
     conversationHistory: [
       {
         timestamp: new Date("2024-01-22T07:45:00"),
@@ -119,12 +131,16 @@ export const mockPatientInteractions: PatientInteraction[] = [
     id: "4",
     patientName: "Robert Davis",
     patientId: "PT-2024-004",
+    dateOfBirth: "1955-09-14",
+    callNumber: 1,
     status: "in_queue",
     source: "inbound_text",
     timestamp: new Date("2024-01-22T10:20:00"),
     notes: "Questions about medication timing for blood pressure medications",
     priority: "medium",
     department: "cardiology",
+    preliminaryDiagnosis: "Medication timing inquiry",
+    triageOutcome: "Needs action",
     conversationHistory: [
       {
         timestamp: new Date("2024-01-22T10:20:00"),
@@ -137,12 +153,16 @@ export const mockPatientInteractions: PatientInteraction[] = [
     id: "5",
     patientName: "Lisa Anderson",
     patientId: "PT-2024-005",
+    dateOfBirth: "1970-04-30",
+    callNumber: 2,
     status: "needs_action",
     source: "inbound_scheduling",
     timestamp: new Date("2024-01-22T11:00:00"),
     notes: "Urgent rescheduling needed due to new symptoms. Patient reports worsening heart palpitations.",
     priority: "high",
     department: "cardiology",
+    preliminaryDiagnosis: "Worsening palpitations",
+    triageOutcome: "Needs action",
     conversationHistory: [
       {
         timestamp: new Date("2024-01-22T11:00:00"),
@@ -170,6 +190,8 @@ export const mockPatientInteractions: PatientInteraction[] = [
     id: "6",
     patientName: "James Wilson",
     patientId: "PT-2024-006",
+    dateOfBirth: "1948-12-11",
+    callNumber: 1,
     status: "engaged",
     source: "outbound_flow",
     sourceDetail: "Heart Failure Management Check-in",
@@ -178,6 +200,8 @@ export const mockPatientInteractions: PatientInteraction[] = [
     priority: "medium",
     department: "cardiology",
     notes: "Weekly check-in completed. Patient reports stable symptoms, good medication compliance.",
+    preliminaryDiagnosis: "Heart failure - stable",
+    triageOutcome: "Completed",
     conversationHistory: [
       {
         timestamp: new Date("2024-01-22T06:30:00"),
@@ -230,12 +254,16 @@ export const mockPatientInteractions: PatientInteraction[] = [
     id: "7",
     patientName: "Maria Garcia",
     patientId: "PT-2024-007",
+    dateOfBirth: "1963-06-25",
+    callNumber: 1,
     status: "scheduled",
     source: "inbound_scheduling",
     timestamp: new Date("2024-01-22T09:45:00"),
     notes: "Successfully scheduled for upper endoscopy with pre-procedure prep education completed",
     priority: "low",
     department: "gastroenterology",
+    preliminaryDiagnosis: "Routine endoscopy",
+    triageOutcome: "Completed",
     conversationHistory: [
       {
         timestamp: new Date("2024-01-22T09:45:00"),
@@ -273,6 +301,8 @@ export const mockPatientInteractions: PatientInteraction[] = [
     id: "8",
     patientName: "David Thompson",
     patientId: "PT-2024-008",
+    dateOfBirth: "1960-01-19",
+    callNumber: 1,
     status: "message_sent",
     source: "outbound_flow",
     sourceDetail: "Post-Surgery Recovery Instructions",
@@ -280,6 +310,8 @@ export const mockPatientInteractions: PatientInteraction[] = [
     priority: "medium",
     department: "gastroenterology",
     notes: "Post-operative care instructions delivered. Patient acknowledged understanding of diet restrictions and follow-up schedule.",
+    preliminaryDiagnosis: "Post-surgical recovery",
+    triageOutcome: "In queue",
     conversationHistory: [
       {
         timestamp: new Date("2024-01-22T08:00:00"),
@@ -312,6 +344,8 @@ export const mockPatientInteractions: PatientInteraction[] = [
     id: "9",
     patientName: "Dr. Patricia Kim",
     patientId: "PT-2024-009",
+    dateOfBirth: "1985-08-14",
+    callNumber: 1,
     status: "engaged",
     source: "inbound_phone",
     timestamp: new Date("2024-01-22T14:30:00"),
@@ -319,6 +353,8 @@ export const mockPatientInteractions: PatientInteraction[] = [
     notes: "Physician calling about patient care coordination. Successfully connected to on-call cardiologist.",
     priority: "high",
     department: "cardiology",
+    preliminaryDiagnosis: "Physician consultation",
+    triageOutcome: "Completed",
     conversationHistory: [
       {
         timestamp: new Date("2024-01-22T14:30:00"),
@@ -336,6 +372,8 @@ export const mockPatientInteractions: PatientInteraction[] = [
     id: "10",
     patientName: "Nancy Rodriguez",
     patientId: "PT-2024-010",
+    dateOfBirth: "1952-05-03",
+    callNumber: 2,
     status: "needs_action",
     source: "outbound_flow", 
     sourceDetail: "Medication Adherence Check",
@@ -344,6 +382,8 @@ export const mockPatientInteractions: PatientInteraction[] = [
     notes: "Patient reports missing multiple doses of heart medication due to cost concerns. Requires social work consultation.",
     priority: "high",
     department: "cardiology",
+    preliminaryDiagnosis: "Medication non-adherence",
+    triageOutcome: "Needs action",
     conversationHistory: [
       {
         timestamp: new Date("2024-01-22T16:00:00"),
@@ -449,7 +489,7 @@ export const mockTriageProtocols: TriageProtocol[] = [
     symptoms: ["dizziness", "fatigue", "swelling"],
     lastUpdated: new Date("2024-01-20T00:00:00"),
     version: "1.0",
-    createdBy: "Nurse Manager Jane Smith",
+    createdBy: "Dr. Jennifer Adams",
     status: "active"
   }
 ]

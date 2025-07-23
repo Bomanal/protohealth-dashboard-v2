@@ -12,6 +12,8 @@ export interface PatientInteraction {
   id: string
   patientName: string
   patientId: string
+  dateOfBirth: string
+  callNumber: number
   status: InteractionStatus
   source: InteractionSource
   sourceDetail?: string // e.g., "Post-Surgery Follow-up" for outbound flow
@@ -21,6 +23,8 @@ export interface PatientInteraction {
   priority: "low" | "medium" | "high"
   department: "cardiology" | "gastroenterology"
   conversationHistory?: ConversationMessage[]
+  preliminaryDiagnosis?: string
+  triageOutcome?: string
 }
 
 export interface OutboundFlow {

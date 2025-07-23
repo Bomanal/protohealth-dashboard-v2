@@ -245,57 +245,101 @@ export default function AllEngagements() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {filteredInteractions.length === 0 ? (
-                <div className="text-center py-8">
-                  <Eye className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No engagements found</h3>
-                  <p className="text-muted-foreground">Try adjusting your search or filters.</p>
-                </div>
-              ) : (
-                filteredInteractions.map((interaction) => (
-                  <Card key={interaction.id} className="hover:shadow-sm transition-shadow">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4 flex-1">
-                          <div className="flex items-center gap-2">
-                            {getDepartmentIcon(interaction.department)}
-                            {getStatusIcon(interaction.status)}
-                          </div>
-                          
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-1">
-                              <h4 className="font-semibold">{interaction.patientName}</h4>
-                              <Badge variant="outline" className="text-xs">
-                                {interaction.department}
-                              </Badge>
-                              <StatusBadge status={interaction.status} />
-                            </div>
-                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                              <span>{interaction.sourceDetail || interaction.source}</span>
-                              <span>•</span>
-                              <span>{formatDateTime(interaction.timestamp)}</span>
-                              <span>•</span>
-                              <span>Last: {interaction.lastContact ? formatDateTime(interaction.lastContact) : "No contact"}</span>
-                            </div>
-                          </div>
-                        </div>
+            {filteredInteractions.length === 0 ? (
+              <div className="text-center py-8">
+                <Eye className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No engagements found</h3>
+                <p className="text-muted-foreground">Try adjusting your search or filters.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left p-2 font-medium text-muted-foreground">Patient Name</th>
+                      <th className="text-left p-2 font-medium text-muted-foreground">DOB</th>
+                      <th className="text-left p-2 font-medium text-muted-foreground">Call #</th>
+                      <th className="text-left p-2 font-medium text-muted-foreground">Date</th>
+                      <th className="text-left p-2 font-medium text-muted-foreground">Channel Subdisposition</th>
+                      <th className="text-left p-2 font-medium text-muted-foreground">Channel</th>
+                      <th className="text-left p-2 font-medium text-muted-foreground">Status</th>
+                      <th className="text-left p-2 font-medium text-muted-foreground">Preliminary Diagnosis</th>
+                      <th className="text-left p-2 font-medium text-muted-foreground">Triage Outcome</th>
+                      <th className="text-left p-2 font-medium text-muted-foreground"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredInteractions.map((interaction) => {
+                      const getChannelSubdisposition = () => {
+                        if (interaction.source === "outbound_flow") {
+                          return interaction.sourceDetail || "Outbound Flow"
+                        }
+                        return interaction.source.replace("_", " ")
+                      }
+                      
+                      const getChannelType = () => {
+                        switch (interaction.source) {
+                          case "outbound_flow": return "Outbound"
+                          case "inbound_phone": return "Phone"
+                          case "inbound_text": return "Text"
+                          case "inbound_email": return "Email"
+                          case "inbound_scheduling": return "Scheduling"
+                          default: return interaction.source
+                        }
+                      }
 
-                        <div className="flex items-center gap-2">
-                          <Button 
-                            size="sm" 
-                            variant="ghost"
-                            onClick={() => navigate(`/patient-interaction/${interaction.id}`)}
-                          >
-                            <ArrowRight className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
-            </div>
+                      const getStatusForDisplay = () => {
+                        if (interaction.source === "outbound_flow") {
+                          switch (interaction.status) {
+                            case "needs_action": return "Needs action"
+                            case "engaged": return "Completed"
+                            case "message_sent": return "No contact"
+                            case "in_queue": return "In queue"
+                            default: return interaction.status
+                          }
+                        } else {
+                          // Inbound
+                          switch (interaction.status) {
+                            case "needs_action": return "Needs action"
+                            case "engaged": return "Completed"
+                            case "scheduled": return "Completed"
+                            case "in_queue": return "Abandoned"
+                            default: return interaction.status
+                          }
+                        }
+                      }
+
+                      return (
+                        <tr key={interaction.id} className="border-b hover:bg-muted/50 transition-colors">
+                          <td className="p-2 font-medium">{interaction.patientName}</td>
+                          <td className="p-2 text-sm text-muted-foreground">{interaction.dateOfBirth}</td>
+                          <td className="p-2 text-sm">{interaction.callNumber}</td>
+                          <td className="p-2 text-sm">{formatDateTime(interaction.timestamp)}</td>
+                          <td className="p-2 text-sm">{getChannelSubdisposition()}</td>
+                          <td className="p-2 text-sm">{getChannelType()}</td>
+                          <td className="p-2">
+                            <Badge variant="outline" className="text-xs">
+                              {getStatusForDisplay()}
+                            </Badge>
+                          </td>
+                          <td className="p-2 text-sm">{interaction.preliminaryDiagnosis || "—"}</td>
+                          <td className="p-2 text-sm">{interaction.triageOutcome || "—"}</td>
+                          <td className="p-2">
+                            <Button 
+                              size="sm" 
+                              variant="ghost"
+                              onClick={() => navigate(`/patient-interaction/${interaction.id}`)}
+                            >
+                              <ArrowRight className="h-4 w-4" />
+                            </Button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -5,6 +5,7 @@ export const mockPatientInteractions: PatientInteraction[] = [
     id: "1",
     patientName: "Sarah Johnson",
     patientId: "PT-2024-001",
+    phoneNumber: "(555) 123-4567",
     dateOfBirth: "1975-03-15",
     callNumber: 1,
     status: "needs_action",
@@ -17,6 +18,9 @@ export const mockPatientInteractions: PatientInteraction[] = [
     department: "cardiology",
     preliminaryDiagnosis: "Possible post-procedural complications",
     triageOutcome: "Escalate to cardiologist",
+    clinicalSummary: "Post-cardiac catheterization patient presenting with chest discomfort and dyspnea on exertion. Symptoms concerning for possible complications requiring urgent cardiology evaluation.",
+    patientIssue: "Patient experiencing chest pressure and shortness of breath following cardiac catheterization procedure performed yesterday.",
+    medicalHistory: "History of coronary artery disease, recent cardiac catheterization, hypertension, hyperlipidemia.",
     conversationHistory: [
       {
         timestamp: new Date("2024-01-22T08:30:00"),
@@ -49,6 +53,7 @@ export const mockPatientInteractions: PatientInteraction[] = [
     id: "2",
     patientName: "Michael Chen",
     patientId: "PT-2024-002",
+    phoneNumber: "(555) 234-5678",
     dateOfBirth: "1968-07-22",
     callNumber: 1,
     status: "engaged",
@@ -60,6 +65,9 @@ export const mockPatientInteractions: PatientInteraction[] = [
     department: "gastroenterology",
     preliminaryDiagnosis: "Routine colonoscopy prep",
     triageOutcome: "Completed",
+    clinicalSummary: "Patient called for colonoscopy preparation instructions. Provided comprehensive prep guidance and scheduled reminder calls.",
+    patientIssue: "Patient needed clarification on colonoscopy preparation procedures and timing.",
+    medicalHistory: "Routine screening colonoscopy, no significant GI history.",
     conversationHistory: [
       {
         timestamp: new Date("2024-01-22T09:15:00"),
@@ -97,6 +105,7 @@ export const mockPatientInteractions: PatientInteraction[] = [
     id: "3",
     patientName: "Emma Williams",
     patientId: "PT-2024-003",
+    phoneNumber: "(555) 345-6789",
     dateOfBirth: "1982-11-08",
     callNumber: 1,
     status: "message_sent",
@@ -109,6 +118,9 @@ export const mockPatientInteractions: PatientInteraction[] = [
     notes: "Automated message sent with prep instructions. Patient confirmed receipt via text.",
     preliminaryDiagnosis: "Endoscopy preparation",
     triageOutcome: "In queue",
+    clinicalSummary: "Pre-procedure preparation contact completed. Patient confirmed receipt of instructions and transportation arrangements.",
+    patientIssue: "Scheduled for upper endoscopy, needed preparation instructions and confirmation of transportation.",
+    medicalHistory: "Upper GI symptoms, scheduled for diagnostic endoscopy.",
     conversationHistory: [
       {
         timestamp: new Date("2024-01-22T07:45:00"),
@@ -131,6 +143,7 @@ export const mockPatientInteractions: PatientInteraction[] = [
     id: "4",
     patientName: "Robert Davis",
     patientId: "PT-2024-004",
+    phoneNumber: "(555) 456-7890",
     dateOfBirth: "1955-09-14",
     callNumber: 1,
     status: "in_queue",
@@ -141,6 +154,9 @@ export const mockPatientInteractions: PatientInteraction[] = [
     department: "cardiology",
     preliminaryDiagnosis: "Medication timing inquiry",
     triageOutcome: "Needs action",
+    clinicalSummary: "Patient inquiry regarding missed blood pressure medication. Awaiting clinical guidance for medication timing.",
+    patientIssue: "Patient forgot to take morning blood pressure medication, seeking guidance on timing.",
+    medicalHistory: "Hypertension, on antihypertensive therapy.",
     conversationHistory: [
       {
         timestamp: new Date("2024-01-22T10:20:00"),
@@ -153,6 +169,7 @@ export const mockPatientInteractions: PatientInteraction[] = [
     id: "5",
     patientName: "Lisa Anderson",
     patientId: "PT-2024-005",
+    phoneNumber: "(555) 567-8901",
     dateOfBirth: "1970-04-30",
     callNumber: 2,
     status: "needs_action",
@@ -163,6 +180,9 @@ export const mockPatientInteractions: PatientInteraction[] = [
     department: "cardiology",
     preliminaryDiagnosis: "Worsening palpitations",
     triageOutcome: "Needs action",
+    clinicalSummary: "Patient reporting increased frequency and duration of heart palpitations. Urgent cardiology evaluation needed.",
+    patientIssue: "Worsening heart palpitations - increased frequency to 3-4 times daily, lasting up to 10 minutes each episode.",
+    medicalHistory: "History of palpitations, prior cardiology evaluation.",
     conversationHistory: [
       {
         timestamp: new Date("2024-01-22T11:00:00"),
@@ -183,232 +203,6 @@ export const mockPatientInteractions: PatientInteraction[] = [
         timestamp: new Date("2024-01-22T11:02:30"),
         speaker: "AI Assistant",
         message: "That's important information. I'm flagging this for urgent scheduling and a nurse will call you back within 30 minutes to arrange an earlier appointment."
-      }
-    ]
-  },
-  {
-    id: "6",
-    patientName: "James Wilson",
-    patientId: "PT-2024-006",
-    dateOfBirth: "1948-12-11",
-    callNumber: 1,
-    status: "engaged",
-    source: "outbound_flow",
-    sourceDetail: "Heart Failure Management Check-in",
-    timestamp: new Date("2024-01-22T06:30:00"),
-    lastContact: new Date("2024-01-22T06:30:00"),
-    priority: "medium",
-    department: "cardiology",
-    notes: "Weekly check-in completed. Patient reports stable symptoms, good medication compliance.",
-    preliminaryDiagnosis: "Heart failure - stable",
-    triageOutcome: "Completed",
-    conversationHistory: [
-      {
-        timestamp: new Date("2024-01-22T06:30:00"),
-        speaker: "AI Assistant",
-        message: "Good morning Mr. Wilson! This is your weekly heart failure check-in. How have you been feeling this week?"
-      },
-      {
-        timestamp: new Date("2024-01-22T06:31:00"),
-        speaker: "James Wilson",
-        message: "Pretty good overall. No major changes."
-      },
-      {
-        timestamp: new Date("2024-01-22T06:31:30"),
-        speaker: "AI Assistant",
-        message: "Great to hear! Let's go through our usual questions. Have you weighed yourself daily? Any weight gain of 2 pounds or more?"
-      },
-      {
-        timestamp: new Date("2024-01-22T06:32:00"),
-        speaker: "James Wilson",
-        message: "Yes, I weigh myself every morning. No significant changes - stayed between 185-187 all week."
-      },
-      {
-        timestamp: new Date("2024-01-22T06:33:00"),
-        speaker: "AI Assistant",
-        message: "Excellent! How about shortness of breath or swelling in your legs?"
-      },
-      {
-        timestamp: new Date("2024-01-22T06:33:30"),
-        speaker: "James Wilson",
-        message: "No new shortness of breath, and the ankle swelling is about the same as usual."
-      },
-      {
-        timestamp: new Date("2024-01-22T06:34:00"),
-        speaker: "AI Assistant",
-        message: "Perfect. Are you taking all your medications as prescribed?"
-      },
-      {
-        timestamp: new Date("2024-01-22T06:34:30"),
-        speaker: "James Wilson",
-        message: "Yes, every day. The pill organizer really helps."
-      },
-      {
-        timestamp: new Date("2024-01-22T06:35:00"),
-        speaker: "AI Assistant",
-        message: "Wonderful! Your heart failure management is going very well. Continue with your current plan and I'll check in again next Monday."
-      }
-    ]
-  },
-  {
-    id: "7",
-    patientName: "Maria Garcia",
-    patientId: "PT-2024-007",
-    dateOfBirth: "1963-06-25",
-    callNumber: 1,
-    status: "scheduled",
-    source: "inbound_scheduling",
-    timestamp: new Date("2024-01-22T09:45:00"),
-    notes: "Successfully scheduled for upper endoscopy with pre-procedure prep education completed",
-    priority: "low",
-    department: "gastroenterology",
-    preliminaryDiagnosis: "Routine endoscopy",
-    triageOutcome: "Completed",
-    conversationHistory: [
-      {
-        timestamp: new Date("2024-01-22T09:45:00"),
-        speaker: "Maria Garcia",
-        message: "I need to schedule an upper endoscopy. My doctor said I should call."
-      },
-      {
-        timestamp: new Date("2024-01-22T09:45:30"),
-        speaker: "AI Assistant",
-        message: "I'd be happy to help you schedule that. Let me check Dr. Patel's availability. Do you have any preferred dates or times?"
-      },
-      {
-        timestamp: new Date("2024-01-22T09:46:00"),
-        speaker: "Maria Garcia",
-        message: "Morning times work better for me, preferably next week."
-      },
-      {
-        timestamp: new Date("2024-01-22T09:46:30"),
-        speaker: "AI Assistant",
-        message: "I have Tuesday at 8 AM or Thursday at 9:30 AM available. Which would you prefer?"
-      },
-      {
-        timestamp: new Date("2024-01-22T09:47:00"),
-        speaker: "Maria Garcia",
-        message: "Thursday at 9:30 works perfectly."
-      },
-      {
-        timestamp: new Date("2024-01-22T09:47:30"),
-        speaker: "AI Assistant",
-        message: "Perfect! You're scheduled for Thursday, January 25th at 9:30 AM. I'll send you preparation instructions and a reminder call the day before."
-      }
-    ]
-  },
-  {
-    id: "8",
-    patientName: "David Thompson",
-    patientId: "PT-2024-008",
-    dateOfBirth: "1960-01-19",
-    callNumber: 1,
-    status: "message_sent",
-    source: "outbound_flow",
-    sourceDetail: "Post-Surgery Recovery Instructions",
-    timestamp: new Date("2024-01-22T08:00:00"),
-    priority: "medium",
-    department: "gastroenterology",
-    notes: "Post-operative care instructions delivered. Patient acknowledged understanding of diet restrictions and follow-up schedule.",
-    preliminaryDiagnosis: "Post-surgical recovery",
-    triageOutcome: "In queue",
-    conversationHistory: [
-      {
-        timestamp: new Date("2024-01-22T08:00:00"),
-        speaker: "AI Assistant",
-        message: "Good morning David! This is NurseAssist AI following up on your procedure yesterday. How are you feeling today?"
-      },
-      {
-        timestamp: new Date("2024-01-22T08:01:00"),
-        speaker: "David Thompson",
-        message: "I'm feeling okay, just a little sore."
-      },
-      {
-        timestamp: new Date("2024-01-22T08:01:30"),
-        speaker: "AI Assistant",
-        message: "That's normal after your procedure. For the next 24 hours, please stick to clear liquids, then advance to soft foods tomorrow. Avoid heavy lifting for one week."
-      },
-      {
-        timestamp: new Date("2024-01-22T08:02:00"),
-        speaker: "David Thompson",
-        message: "Got it. When should I follow up?"
-      },
-      {
-        timestamp: new Date("2024-01-22T08:02:30"),
-        speaker: "AI Assistant",
-        message: "Your follow-up appointment is scheduled for next Friday. I'll send you a confirmation text. Call if you experience severe pain, fever, or unusual symptoms."
-      }
-    ]
-  },
-  {
-    id: "9",
-    patientName: "Dr. Patricia Kim",
-    patientId: "PT-2024-009",
-    dateOfBirth: "1985-08-14",
-    callNumber: 1,
-    status: "engaged",
-    source: "inbound_phone",
-    timestamp: new Date("2024-01-22T14:30:00"),
-    lastContact: new Date("2024-01-22T14:30:00"),
-    notes: "Physician calling about patient care coordination. Successfully connected to on-call cardiologist.",
-    priority: "high",
-    department: "cardiology",
-    preliminaryDiagnosis: "Physician consultation",
-    triageOutcome: "Completed",
-    conversationHistory: [
-      {
-        timestamp: new Date("2024-01-22T14:30:00"),
-        speaker: "Dr. Patricia Kim",
-        message: "This is Dr. Kim from Emergency. I have a patient here with chest pain and I need to speak with cardiology about urgent cath lab activation."
-      },
-      {
-        timestamp: new Date("2024-01-22T14:30:30"),
-        speaker: "AI Assistant",
-        message: "Dr. Kim, I'm connecting you immediately to Dr. Martinez, our on-call interventional cardiologist. Please hold while I patch you through."
-      }
-    ]
-  },
-  {
-    id: "10",
-    patientName: "Nancy Rodriguez",
-    patientId: "PT-2024-010",
-    dateOfBirth: "1952-05-03",
-    callNumber: 2,
-    status: "needs_action",
-    source: "outbound_flow", 
-    sourceDetail: "Medication Adherence Check",
-    timestamp: new Date("2024-01-22T16:00:00"),
-    lastContact: new Date("2024-01-22T16:00:00"),
-    notes: "Patient reports missing multiple doses of heart medication due to cost concerns. Requires social work consultation.",
-    priority: "high",
-    department: "cardiology",
-    preliminaryDiagnosis: "Medication non-adherence",
-    triageOutcome: "Needs action",
-    conversationHistory: [
-      {
-        timestamp: new Date("2024-01-22T16:00:00"),
-        speaker: "AI Assistant",
-        message: "Hello Mrs. Rodriguez! This is your monthly medication check-in. Are you taking all your heart medications as prescribed?"
-      },
-      {
-        timestamp: new Date("2024-01-22T16:01:00"),
-        speaker: "Nancy Rodriguez",
-        message: "I've been trying to, but I ran out of two of them last week and haven't been able to refill them."
-      },
-      {
-        timestamp: new Date("2024-01-22T16:01:30"),
-        speaker: "AI Assistant",
-        message: "I'm sorry to hear that. Can you tell me which medications you're unable to refill?"
-      },
-      {
-        timestamp: new Date("2024-01-22T16:02:00"),
-        speaker: "Nancy Rodriguez",
-        message: "The metoprolol and the Lipitor. They're just too expensive right now."
-      },
-      {
-        timestamp: new Date("2024-01-22T16:02:30"),
-        speaker: "AI Assistant",
-        message: "I understand how challenging medication costs can be. I'm connecting you with our financial counselor who can help with patient assistance programs. This is very important for your heart health."
       }
     ]
   }

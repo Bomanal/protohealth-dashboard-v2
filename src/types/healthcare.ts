@@ -12,6 +12,7 @@ export interface PatientInteraction {
   id: string
   patientName: string
   patientId: string
+  phoneNumber: string
   dateOfBirth: string
   callNumber: number
   status: InteractionStatus
@@ -25,6 +26,9 @@ export interface PatientInteraction {
   conversationHistory?: ConversationMessage[]
   preliminaryDiagnosis?: string
   triageOutcome?: string
+  clinicalSummary?: string
+  patientIssue?: string
+  medicalHistory?: string
 }
 
 export interface OutboundFlow {

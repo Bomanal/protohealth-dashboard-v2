@@ -63,10 +63,48 @@ export default function PatientInteractionDetails() {
     switch (source) {
       case "inbound_phone": return <Phone className="h-4 w-4" />
       case "inbound_text": return <MessageSquare className="h-4 w-4" />
+      case "inbound_email": return <MessageSquare className="h-4 w-4" />
       case "inbound_scheduling": return <Calendar className="h-4 w-4" />
       case "outbound_flow": return <FileText className="h-4 w-4" />
       default: return <MessageSquare className="h-4 w-4" />
     }
+  }
+
+  const getChannelType = (source: string) => {
+    switch (source) {
+      case "outbound_flow": return "Outbound"
+      case "inbound_phone": return "Phone"
+      case "inbound_text": return "Text"
+      case "inbound_email": return "Email"
+      case "inbound_scheduling": return "Scheduling"
+      default: return source
+    }
+  }
+
+  const getStatusForDisplay = () => {
+    if (interaction.source === "outbound_flow") {
+      switch (interaction.status) {
+        case "needs_action": return "Needs action"
+        case "engaged": return "Completed"
+        case "message_sent": return "No contact"
+        case "in_queue": return "In queue"
+        default: return interaction.status
+      }
+    } else {
+      // Inbound
+      switch (interaction.status) {
+        case "needs_action": return "Needs action"
+        case "engaged": return "Completed"
+        case "scheduled": return "Completed"
+        case "in_queue": return "Abandoned"
+        default: return interaction.status
+      }
+    }
+  }
+
+  const shouldShowTriageOutcome = () => {
+    const status = getStatusForDisplay().toLowerCase()
+    return status === "completed" || status === "needs action"
   }
 
   return (
@@ -111,60 +149,94 @@ export default function PatientInteractionDetails() {
                   Interaction Overview
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Patient Name</label>
                     <p className="text-lg font-semibold">{interaction.patientName}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">DOB</label>
+                    <p className="text-lg">{interaction.dateOfBirth}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Patient ID</label>
                     <p className="text-lg font-mono">{interaction.patientId}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">Department</label>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Building className="h-4 w-4" />
-                      <Badge variant="outline" className="capitalize">
-                        {interaction.department}
-                      </Badge>
-                    </div>
+                    <label className="text-sm font-medium text-muted-foreground">Phone Number</label>
+                    <p className="text-lg">{interaction.phoneNumber}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">Priority</label>
-                    <div className="mt-1">
-                      <Badge variant={getPriorityColor(interaction.priority)} className="capitalize">
-                        {interaction.priority} Priority
-                      </Badge>
-                    </div>
+                    <label className="text-sm font-medium text-muted-foreground">Call Number</label>
+                    <p className="text-lg font-semibold">#{interaction.callNumber}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">Source</label>
+                    <label className="text-sm font-medium text-muted-foreground">Date of Interaction</label>
+                    <p className="text-lg">{formatDateTime(interaction.timestamp)}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Channel Subdisposition</label>
+                    <p className="text-lg">
+                      {interaction.source === "outbound_flow" 
+                        ? interaction.sourceDetail || "Outbound Flow"
+                        : interaction.source.replace("_", " ")
+                      }
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Channel</label>
                     <div className="flex items-center gap-2 mt-1">
                       {getSourceIcon(interaction.source)}
-                      <span className="capitalize">{interaction.source.replace("_", " ")}</span>
+                      <span className="text-lg">{getChannelType(interaction.source)}</span>
                     </div>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Status</label>
                     <div className="mt-1">
-                      <StatusBadge status={interaction.status} />
+                      <Badge variant="outline" className="text-sm">
+                        {getStatusForDisplay()}
+                      </Badge>
                     </div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Preliminary Diagnosis</label>
+                    <p className="text-lg">{interaction.preliminaryDiagnosis || "—"}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Triage Outcome</label>
+                    <p className="text-lg">
+                      {shouldShowTriageOutcome() ? (interaction.triageOutcome || "—") : "—"}
+                    </p>
                   </div>
                 </div>
 
-                {interaction.sourceDetail && (
+                {/* Clinical Summary */}
+                {interaction.clinicalSummary && (
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">Source Details</label>
-                    <p className="mt-1">{interaction.sourceDetail}</p>
+                    <label className="text-sm font-medium text-muted-foreground">Clinical Summary</label>
+                    <div className="mt-2 p-4 bg-muted/50 rounded-lg">
+                      <p className="text-sm leading-relaxed">{interaction.clinicalSummary}</p>
+                    </div>
                   </div>
                 )}
 
-                {interaction.notes && (
+                {/* Patient Issue */}
+                {interaction.patientIssue && (
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">Clinical Notes</label>
-                    <div className="mt-1 p-3 bg-muted/50 rounded-lg">
-                      <p>{interaction.notes}</p>
+                    <label className="text-sm font-medium text-muted-foreground">Patient Issue</label>
+                    <div className="mt-2 p-4 bg-warning/10 border border-warning/20 rounded-lg">
+                      <p className="text-sm leading-relaxed">{interaction.patientIssue}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Medical History */}
+                {interaction.medicalHistory && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Medical History</label>
+                    <div className="mt-2 p-4 bg-info/10 border border-info/20 rounded-lg">
+                      <p className="text-sm leading-relaxed">{interaction.medicalHistory}</p>
                     </div>
                   </div>
                 )}
@@ -239,28 +311,6 @@ export default function PatientInteractionDetails() {
               </CardContent>
             </Card>
 
-            {/* Related Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Related Information</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div>
-                  <p className="font-medium text-sm">Recent Interactions</p>
-                  <p className="text-xs text-muted-foreground">2 interactions this month</p>
-                </div>
-                <div>
-                  <p className="font-medium text-sm">Care Team</p>
-                  <p className="text-xs text-muted-foreground">
-                    {interaction.department === "cardiology" ? "Dr. Martinez (Cardiology)" : "Dr. Patel (Gastroenterology)"}
-                  </p>
-                </div>
-                <div>
-                  <p className="font-medium text-sm">Next Appointment</p>
-                  <p className="text-xs text-muted-foreground">January 25, 2024</p>
-                </div>
-              </CardContent>
-            </Card>
           </div>
         </div>
       </div>

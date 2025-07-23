@@ -256,16 +256,15 @@ export default function AllEngagements() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b">
-                      <th className="text-left p-2 font-medium text-muted-foreground">Patient Name</th>
-                      <th className="text-left p-2 font-medium text-muted-foreground">DOB</th>
-                      <th className="text-left p-2 font-medium text-muted-foreground">Call #</th>
-                      <th className="text-left p-2 font-medium text-muted-foreground">Date</th>
-                      <th className="text-left p-2 font-medium text-muted-foreground">Channel Subdisposition</th>
-                      <th className="text-left p-2 font-medium text-muted-foreground">Channel</th>
-                      <th className="text-left p-2 font-medium text-muted-foreground">Status</th>
-                      <th className="text-left p-2 font-medium text-muted-foreground">Preliminary Diagnosis</th>
-                      <th className="text-left p-2 font-medium text-muted-foreground">Triage Outcome</th>
-                      <th className="text-left p-2 font-medium text-muted-foreground"></th>
+                      <th className="text-left p-3 font-medium text-muted-foreground">Patient Name</th>
+                      <th className="text-left p-3 font-medium text-muted-foreground">DOB</th>
+                      <th className="text-left p-3 font-medium text-muted-foreground">Call #</th>
+                      <th className="text-left p-3 font-medium text-muted-foreground">Date</th>
+                      <th className="text-left p-3 font-medium text-muted-foreground">Channel Subdisposition</th>
+                      <th className="text-left p-3 font-medium text-muted-foreground">Status</th>
+                      <th className="text-left p-3 font-medium text-muted-foreground">Preliminary Diagnosis</th>
+                      <th className="text-left p-3 font-medium text-muted-foreground">Triage Outcome</th>
+                      <th className="text-left p-3 font-medium text-muted-foreground"></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -275,17 +274,6 @@ export default function AllEngagements() {
                           return interaction.sourceDetail || "Outbound Flow"
                         }
                         return interaction.source.replace("_", " ")
-                      }
-                      
-                      const getChannelType = () => {
-                        switch (interaction.source) {
-                          case "outbound_flow": return "Outbound"
-                          case "inbound_phone": return "Phone"
-                          case "inbound_text": return "Text"
-                          case "inbound_email": return "Email"
-                          case "inbound_scheduling": return "Scheduling"
-                          default: return interaction.source
-                        }
                       }
 
                       const getStatusForDisplay = () => {
@@ -309,26 +297,45 @@ export default function AllEngagements() {
                         }
                       }
 
+                      const getStatusBadgeVariant = () => {
+                        const status = getStatusForDisplay()
+                        switch (status.toLowerCase()) {
+                          case "completed": return "default"
+                          case "needs action": return "destructive"
+                          case "no contact": return "secondary"
+                          case "in queue": return "outline"
+                          case "abandoned": return "secondary"
+                          default: return "outline"
+                        }
+                      }
+
+                      const shouldShowTriageOutcome = () => {
+                        const status = getStatusForDisplay().toLowerCase()
+                        return status === "completed" || status === "needs action"
+                      }
+
                       return (
-                        <tr key={interaction.id} className="border-b hover:bg-muted/50 transition-colors">
-                          <td className="p-2 font-medium">{interaction.patientName}</td>
-                          <td className="p-2 text-sm text-muted-foreground">{interaction.dateOfBirth}</td>
-                          <td className="p-2 text-sm">{interaction.callNumber}</td>
-                          <td className="p-2 text-sm">{formatDateTime(interaction.timestamp)}</td>
-                          <td className="p-2 text-sm">{getChannelSubdisposition()}</td>
-                          <td className="p-2 text-sm">{getChannelType()}</td>
-                          <td className="p-2">
-                            <Badge variant="outline" className="text-xs">
+                        <tr key={interaction.id} className="border-b hover:bg-muted/30 transition-colors">
+                          <td className="p-3 font-medium">{interaction.patientName}</td>
+                          <td className="p-3 text-sm text-muted-foreground">{interaction.dateOfBirth}</td>
+                          <td className="p-3 text-sm font-medium">{interaction.callNumber}</td>
+                          <td className="p-3 text-sm">{formatDateTime(interaction.timestamp)}</td>
+                          <td className="p-3 text-sm">{getChannelSubdisposition()}</td>
+                          <td className="p-3">
+                            <Badge variant={getStatusBadgeVariant()} className="text-xs font-medium">
                               {getStatusForDisplay()}
                             </Badge>
                           </td>
-                          <td className="p-2 text-sm">{interaction.preliminaryDiagnosis || "—"}</td>
-                          <td className="p-2 text-sm">{interaction.triageOutcome || "—"}</td>
-                          <td className="p-2">
+                          <td className="p-3 text-sm">{interaction.preliminaryDiagnosis || "—"}</td>
+                          <td className="p-3 text-sm">
+                            {shouldShowTriageOutcome() ? (interaction.triageOutcome || "—") : ""}
+                          </td>
+                          <td className="p-3">
                             <Button 
                               size="sm" 
                               variant="ghost"
                               onClick={() => navigate(`/patient-interaction/${interaction.id}`)}
+                              className="hover:bg-primary/10"
                             >
                               <ArrowRight className="h-4 w-4" />
                             </Button>

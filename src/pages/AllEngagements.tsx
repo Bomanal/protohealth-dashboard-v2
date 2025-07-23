@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { DashboardLayout } from "@/components/DashboardLayout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -24,6 +25,7 @@ import {
 } from "lucide-react"
 
 export default function AllEngagements() {
+  const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedDepartment, setSelectedDepartment] = useState("all")
   const [selectedStatus, setSelectedStatus] = useState("all")
@@ -280,7 +282,11 @@ export default function AllEngagements() {
                         </div>
 
                         <div className="flex items-center gap-2">
-                          <Button size="sm" variant="ghost">
+                          <Button 
+                            size="sm" 
+                            variant="ghost"
+                            onClick={() => navigate(`/patient-interaction/${interaction.id}`)}
+                          >
                             <ArrowRight className="h-4 w-4" />
                           </Button>
                         </div>

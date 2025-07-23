@@ -252,100 +252,125 @@ export default function AllEngagements() {
                 <p className="text-muted-foreground">Try adjusting your search or filters.</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left p-3 font-medium text-muted-foreground">Patient Name</th>
-                      <th className="text-left p-3 font-medium text-muted-foreground">DOB</th>
-                      <th className="text-left p-3 font-medium text-muted-foreground">Call #</th>
-                      <th className="text-left p-3 font-medium text-muted-foreground">Date</th>
-                      <th className="text-left p-3 font-medium text-muted-foreground">Channel Subdisposition</th>
-                      <th className="text-left p-3 font-medium text-muted-foreground">Status</th>
-                      <th className="text-left p-3 font-medium text-muted-foreground">Preliminary Diagnosis</th>
-                      <th className="text-left p-3 font-medium text-muted-foreground">Triage Outcome</th>
-                      <th className="text-left p-3 font-medium text-muted-foreground"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredInteractions.map((interaction) => {
-                      const getChannelSubdisposition = () => {
-                        if (interaction.source === "outbound_flow") {
-                          return interaction.sourceDetail || "Outbound Flow"
-                        }
-                        return interaction.source.replace("_", " ")
-                      }
+            <div className="space-y-4">
+              {filteredInteractions.map((interaction) => {
+                const getChannelSubdisposition = () => {
+                  if (interaction.source === "outbound_flow") {
+                    return interaction.sourceDetail || "Outbound Flow"
+                  }
+                  return interaction.source.replace("_", " ")
+                }
 
-                      const getStatusForDisplay = () => {
-                        if (interaction.source === "outbound_flow") {
-                          switch (interaction.status) {
-                            case "needs_action": return "Needs action"
-                            case "engaged": return "Completed"
-                            case "message_sent": return "No contact"
-                            case "in_queue": return "In queue"
-                            default: return interaction.status
-                          }
-                        } else {
-                          // Inbound
-                          switch (interaction.status) {
-                            case "needs_action": return "Needs action"
-                            case "engaged": return "Completed"
-                            case "scheduled": return "Completed"
-                            case "in_queue": return "Abandoned"
-                            default: return interaction.status
-                          }
-                        }
-                      }
+                const getStatusForDisplay = () => {
+                  if (interaction.source === "outbound_flow") {
+                    switch (interaction.status) {
+                      case "needs_action": return "Needs action"
+                      case "engaged": return "Completed"
+                      case "message_sent": return "No contact"
+                      case "in_queue": return "In queue"
+                      default: return interaction.status
+                    }
+                  } else {
+                    // Inbound
+                    switch (interaction.status) {
+                      case "needs_action": return "Needs action"
+                      case "engaged": return "Completed"
+                      case "scheduled": return "Completed"
+                      case "in_queue": return "Abandoned"
+                      default: return interaction.status
+                    }
+                  }
+                }
 
-                      const getStatusBadgeVariant = () => {
-                        const status = getStatusForDisplay()
-                        switch (status.toLowerCase()) {
-                          case "completed": return "default"
-                          case "needs action": return "destructive"
-                          case "no contact": return "secondary"
-                          case "in queue": return "outline"
-                          case "abandoned": return "secondary"
-                          default: return "outline"
-                        }
-                      }
+                const getStatusBadgeVariant = () => {
+                  const status = getStatusForDisplay()
+                  switch (status.toLowerCase()) {
+                    case "completed": return "default"
+                    case "needs action": return "destructive"
+                    case "no contact": return "secondary"
+                    case "in queue": return "outline"
+                    case "abandoned": return "secondary"
+                    default: return "outline"
+                  }
+                }
 
-                      const shouldShowTriageOutcome = () => {
-                        const status = getStatusForDisplay().toLowerCase()
-                        return status === "completed" || status === "needs action"
-                      }
+                const shouldShowTriageOutcome = () => {
+                  const status = getStatusForDisplay().toLowerCase()
+                  return status === "completed" || status === "needs action"
+                }
 
-                      return (
-                        <tr key={interaction.id} className="border-b hover:bg-muted/30 transition-colors">
-                          <td className="p-3 font-medium">{interaction.patientName}</td>
-                          <td className="p-3 text-sm text-muted-foreground">{interaction.dateOfBirth}</td>
-                          <td className="p-3 text-sm font-medium">{interaction.callNumber}</td>
-                          <td className="p-3 text-sm">{formatDateTime(interaction.timestamp)}</td>
-                          <td className="p-3 text-sm">{getChannelSubdisposition()}</td>
-                          <td className="p-3">
-                            <Badge variant={getStatusBadgeVariant()} className="text-xs font-medium">
-                              {getStatusForDisplay()}
-                            </Badge>
-                          </td>
-                          <td className="p-3 text-sm">{interaction.preliminaryDiagnosis || "—"}</td>
-                          <td className="p-3 text-sm">
-                            {shouldShowTriageOutcome() ? (interaction.triageOutcome || "—") : ""}
-                          </td>
-                          <td className="p-3">
-                            <Button 
-                              size="sm" 
-                              variant="ghost"
-                              onClick={() => navigate(`/patient-interaction/${interaction.id}`)}
-                              className="hover:bg-primary/10"
-                            >
-                              <ArrowRight className="h-4 w-4" />
-                            </Button>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                return (
+                  <Card key={interaction.id} className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-primary/20 hover:border-l-primary">
+                    <CardContent className="p-6">
+                      <div className="flex items-start justify-between gap-6">
+                        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                          {/* Patient Info */}
+                          <div className="space-y-3">
+                            <div>
+                              <h4 className="font-semibold text-lg text-foreground mb-1">
+                                {interaction.patientName}
+                              </h4>
+                              <p className="text-sm text-muted-foreground">DOB: {interaction.dateOfBirth}</p>
+                              <p className="text-sm text-muted-foreground">Call #{interaction.callNumber}</p>
+                            </div>
+                          </div>
+
+                          {/* Interaction Details */}
+                          <div className="space-y-3">
+                            <div>
+                              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                                Date & Channel
+                              </p>
+                              <p className="text-sm font-medium">{formatDateTime(interaction.timestamp)}</p>
+                              <p className="text-sm text-muted-foreground">{getChannelSubdisposition()}</p>
+                            </div>
+                          </div>
+
+                          {/* Status & Diagnosis */}
+                          <div className="space-y-3">
+                            <div>
+                              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                                Status
+                              </p>
+                              <Badge variant={getStatusBadgeVariant()} className="text-xs font-medium mb-2">
+                                {getStatusForDisplay()}
+                              </Badge>
+                              <p className="text-sm text-muted-foreground">
+                                {interaction.preliminaryDiagnosis || "No diagnosis"}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Triage Outcome */}
+                          <div className="space-y-3">
+                            <div>
+                              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                                Triage Outcome
+                              </p>
+                              <p className="text-sm font-medium">
+                                {shouldShowTriageOutcome() ? (interaction.triageOutcome || "Pending") : "—"}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Action Button */}
+                        <div className="flex-shrink-0">
+                          <Button 
+                            variant="outline"
+                            size="sm"
+                            onClick={() => navigate(`/patient-interaction/${interaction.id}`)}
+                            className="hover:bg-primary hover:text-primary-foreground transition-colors"
+                          >
+                            View Details
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
             )}
           </CardContent>
         </Card>

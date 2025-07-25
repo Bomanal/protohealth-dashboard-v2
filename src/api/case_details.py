@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional, Any
 import uuid
@@ -11,7 +11,7 @@ from database import get_db
 router = APIRouter()
 
 class CaseDetailsItem(BaseModel):
-    call_number: uuid.UUID
+    call_id: uuid.UUID
     phone_number: str
     last_call: Optional[datetime.datetime]
     status: Optional[str]
@@ -29,7 +29,7 @@ class CaseDetailsItem(BaseModel):
 def get_case_details(db: Session = Depends(get_db)):
     results = (
         db.query(
-            models.Conversations.session_id.label("call_number"),
+            models.Conversations.session_id.label("call_id"),
             models.Conversations.user_id.label("phone_number"),
             models.Conversations.call_end_time.label("last_call"),
             models.Conversations.conversation_status.label("status"),
@@ -46,3 +46,28 @@ def get_case_details(db: Session = Depends(get_db)):
         .all()
     )
     return results 
+
+@router.get("/case-details/{session_id}", response_model=CaseDetailsItem)
+def get_case_details_by_id(session_id: uuid.UUID, db: Session = Depends(get_db)):
+    result = (
+        db.query(
+            models.Conversations.session_id.label("call_id"),
+            models.Conversations.user_id.label("phone_number"),
+            models.Conversations.call_end_time.label("last_call"),
+            models.Conversations.conversation_status.label("status"),
+            models.TriageOutcomes.final_condition.label("preliminary_diagnosis"),
+            models.TriageOutcomes.triage_outcome.label("triage_outcome"),
+            models.ConversationTranscripts.conversation_transcript.label("call_log"),
+            models.ConversationTranscripts.conversation_summary.label("summary"),
+            models.InitialAssessments.medical_history.label("medical_history"),
+            models.InitialAssessments.current_complaint.label("issue"),
+        )
+        .outerjoin(models.TriageOutcomes, models.Conversations.session_id == models.TriageOutcomes.session_id)
+        .outerjoin(models.ConversationTranscripts, models.Conversations.session_id == models.ConversationTranscripts.session_id)
+        .outerjoin(models.InitialAssessments, models.Conversations.session_id == models.InitialAssessments.session_id)
+        .filter(models.Conversations.session_id == session_id)
+        .first()
+    )
+    if not result:
+        raise HTTPException(status_code=404, detail="Case not found")
+    return result 

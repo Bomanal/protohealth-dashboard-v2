@@ -11,7 +11,7 @@ from database import get_db  # Assumes you have a get_db dependency for session
 router = APIRouter()
 
 class CaseListItem(BaseModel):
-    call_number: uuid.UUID
+    call_id: uuid.UUID
     phone_number: str
     last_call: Optional[datetime.datetime]
     status: Optional[str]
@@ -25,7 +25,7 @@ class CaseListItem(BaseModel):
 def get_case_list(db: Session = Depends(get_db)):
     results = (
         db.query(
-            models.Conversations.session_id.label("call_number"),
+            models.Conversations.session_id.label("call_id"),
             models.Conversations.user_id.label("phone_number"),
             models.Conversations.call_end_time.label("last_call"),
             models.Conversations.conversation_status.label("status"),

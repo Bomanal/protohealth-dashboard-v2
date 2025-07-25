@@ -1,5 +1,5 @@
-import { useState } from "react"
 import { useParams } from "react-router-dom"
+import { useEffect, useState } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -20,11 +20,64 @@ import {
   Edit
 } from "lucide-react"
 
-export default function PatientInteractionDetails() {
-  const { interactionId } = useParams()
-  const interaction = mockPatientInteractions.find(i => i.id === interactionId)
+type CaseDetailsItem = {
+  call_id: string;
+  phone_number: string;
+  last_call: string | null;
+  status: string | null;
+  preliminary_diagnosis: string | null;
+  triage_outcome: string | null;
+  call_log: any;
+  summary: string | null;
+  medical_history: string | null;
+  issue: string | null;
+};
 
-  if (!interaction) {
+export default function PatientInteractionDetails() {
+  const { id } = useParams<{ id: string }>();
+  const [details, setDetails] = useState<CaseDetailsItem | null>(null);
+  const [loading, setLoading] = useState(true);
+  const interaction = mockPatientInteractions.find(i => i.id === id);
+
+  useEffect(() => {
+    if (!id) {
+      setLoading(false);
+      return;
+    }
+    // Only fetch if id looks like a UUID
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+      fetch(`http://127.0.0.1:8000/case-details/${id}`)
+        .then(res => res.json())
+        .then(data => {
+          setDetails(data);
+          setLoading(false);
+        })
+        .catch(err => {
+          console.error("Failed to fetch case details:", err);
+          setLoading(false);
+        });
+    } else {
+      setLoading(false);
+    }
+  }, [id]);
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-6">
+          <Card>
+            <CardContent className="text-center py-8">
+              <AlertTriangle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Loading...</h3>
+              <p className="text-muted-foreground">Fetching case details.</p>
+            </CardContent>
+          </Card>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (!details && !interaction) {
     return (
       <DashboardLayout>
         <div className="space-y-6">
@@ -37,7 +90,7 @@ export default function PatientInteractionDetails() {
           </Card>
         </div>
       </DashboardLayout>
-    )
+    );
   }
 
   const formatDateTime = (date: Date) => {
@@ -82,30 +135,35 @@ export default function PatientInteractionDetails() {
   }
 
   const getStatusForDisplay = () => {
-    if (interaction.source === "outbound_flow") {
-      switch (interaction.status) {
-        case "needs_action": return "Needs action"
-        case "engaged": return "Completed"
-        case "message_sent": return "No contact"
-        case "in_queue": return "In queue"
-        default: return interaction.status
+    if ("source" in data && data.source === "outbound_flow") {
+      switch (data.status) {
+        case "needs_action": return "Needs action";
+        case "engaged": return "Completed";
+        case "message_sent": return "No contact";
+        case "in_queue": return "In queue";
+        default: return data.status;
       }
-    } else {
-      // Inbound
-      switch (interaction.status) {
-        case "needs_action": return "Needs action"
-        case "engaged": return "Completed"
-        case "scheduled": return "Completed"
-        case "in_queue": return "Abandoned"
-        default: return interaction.status
+    } else if ("status" in data) {
+      switch (data.status) {
+        case "needs_action": return "Needs action";
+        case "engaged": return "Completed";
+        case "scheduled": return "Completed";
+        case "in_queue": return "Abandoned";
+        default: return data.status;
       }
     }
-  }
+    return "N/A";
+  };
 
   const shouldShowTriageOutcome = () => {
     const status = getStatusForDisplay().toLowerCase()
     return status === "completed" || status === "needs action"
   }
+
+  // Use API data if available, otherwise mock data
+  const data = details || interaction;
+
+  console.log("details", details, "interaction", interaction);
 
   return (
     <DashboardLayout>
@@ -122,7 +180,7 @@ export default function PatientInteractionDetails() {
                 Patient Interaction Details
               </h1>
               <p className="text-muted-foreground mt-1">
-                {interaction.patientName} • {interaction.patientId}
+                {"patientName" in data ? data.patientName : "N/A"} • {"patientId" in data ? data.patientId : "N/A"}
               </p>
             </div>
           </div>
@@ -153,42 +211,41 @@ export default function PatientInteractionDetails() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Patient Name</label>
-                    <p className="text-lg font-semibold">{interaction.patientName}</p>
+                    <p className="text-lg font-semibold">
+                      {"patientName" in data ? data.patientName : "N/A"}
+                    </p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">DOB</label>
-                    <p className="text-lg">{interaction.dateOfBirth}</p>
+                    <p className="text-lg">{"dateOfBirth" in data ? data.dateOfBirth : "N/A"}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Patient ID</label>
-                    <p className="text-lg font-mono">{interaction.patientId}</p>
+                    <p className="text-lg font-mono">{"patientId" in data ? data.patientId : "N/A"}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Phone Number</label>
-                    <p className="text-lg">{interaction.phoneNumber}</p>
+                    <p className="text-lg">{"phone_number" in data ? data.phone_number : "N/A"}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Call Number</label>
-                    <p className="text-lg font-semibold">#{interaction.callNumber}</p>
+                    <p className="text-lg font-semibold">{"call_id" in data ? `#${data.call_id}` : "N/A"}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Date of Interaction</label>
-                    <p className="text-lg">{formatDateTime(interaction.timestamp)}</p>
+                    <p className="text-lg">{"timestamp" in interaction ? formatDateTime(interaction.timestamp) : "N/A"}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Channel Subdisposition</label>
                     <p className="text-lg">
-                      {interaction.source === "outbound_flow" 
-                        ? interaction.sourceDetail || "Outbound Flow"
-                        : interaction.source.replace("_", " ")
-                      }
+                      {"sourceDetail" in interaction ? interaction.sourceDetail : interaction.source.replace("_", " ")}
                     </p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Channel</label>
                     <div className="flex items-center gap-2 mt-1">
                       {getSourceIcon(interaction.source)}
-                      <span className="text-lg">{getChannelType(interaction.source)}</span>
+                      <span className="text-lg">{"source" in interaction ? getChannelType(interaction.source) : "N/A"}</span>
                     </div>
                   </div>
                   <div>
@@ -201,42 +258,42 @@ export default function PatientInteractionDetails() {
                   </div>
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Preliminary Diagnosis</label>
-                    <p className="text-lg">{interaction.preliminaryDiagnosis || "—"}</p>
+                    <p className="text-lg">{"preliminaryDiagnosis" in interaction ? interaction.preliminaryDiagnosis : "—"}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Triage Outcome</label>
                     <p className="text-lg">
-                      {shouldShowTriageOutcome() ? (interaction.triageOutcome || "—") : "—"}
+                      {"triageOutcome" in interaction ? (shouldShowTriageOutcome() ? interaction.triageOutcome : "—") : "—"}
                     </p>
                   </div>
                 </div>
 
                 {/* Clinical Summary */}
-                {interaction.clinicalSummary && (
+                {"clinicalSummary" in interaction && (
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Clinical Summary</label>
                     <div className="mt-2 p-4 bg-muted/50 rounded-lg">
-                      <p className="text-sm leading-relaxed">{interaction.clinicalSummary}</p>
+                      <p className="text-sm leading-relaxed">{"clinicalSummary" in interaction ? interaction.clinicalSummary : "N/A"}</p>
                     </div>
                   </div>
                 )}
 
                 {/* Patient Issue */}
-                {interaction.patientIssue && (
+                {"patientIssue" in interaction && (
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Patient Issue</label>
                     <div className="mt-2 p-4 bg-warning/10 border border-warning/20 rounded-lg">
-                      <p className="text-sm leading-relaxed">{interaction.patientIssue}</p>
+                      <p className="text-sm leading-relaxed">{"patientIssue" in interaction ? interaction.patientIssue : "N/A"}</p>
                     </div>
                   </div>
                 )}
 
                 {/* Medical History */}
-                {interaction.medicalHistory && (
+                {"medicalHistory" in interaction && (
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Medical History</label>
                     <div className="mt-2 p-4 bg-info/10 border border-info/20 rounded-lg">
-                      <p className="text-sm leading-relaxed">{interaction.medicalHistory}</p>
+                      <p className="text-sm leading-relaxed">{"medicalHistory" in interaction ? interaction.medicalHistory : "N/A"}</p>
                     </div>
                   </div>
                 )}
@@ -244,10 +301,10 @@ export default function PatientInteractionDetails() {
             </Card>
 
             {/* Conversation History */}
-            {interaction.conversationHistory && (
+            {"conversationHistory" in interaction && (
               <ConversationHistory 
                 messages={interaction.conversationHistory}
-                patientName={interaction.patientName}
+                patientName={"patientName" in interaction ? interaction.patientName : "N/A"}
               />
             )}
           </div>
@@ -268,17 +325,17 @@ export default function PatientInteractionDetails() {
                   <div>
                     <p className="font-medium">Interaction Created</p>
                     <p className="text-sm text-muted-foreground">
-                      {formatDateTime(interaction.timestamp)}
+                      {"timestamp" in interaction ? formatDateTime(interaction.timestamp) : "N/A"}
                     </p>
                   </div>
                 </div>
-                {interaction.lastContact && (
+                {"lastContact" in interaction && (
                   <div className="flex items-start gap-3">
                     <div className="w-2 h-2 rounded-full bg-success mt-2" />
                     <div>
                       <p className="font-medium">Last Contact</p>
                       <p className="text-sm text-muted-foreground">
-                        {formatDateTime(interaction.lastContact)}
+                        {"lastContact" in interaction ? formatDateTime(interaction.lastContact) : "N/A"}
                       </p>
                     </div>
                   </div>

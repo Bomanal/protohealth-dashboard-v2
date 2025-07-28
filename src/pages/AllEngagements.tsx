@@ -389,7 +389,7 @@ export default function AllEngagements() {
                                 Triage Outcome
                               </p>
                               <p className="text-sm font-medium">
-                                {shouldShowTriageOutcome() ? (triageOutcome || "Pending") : "—"}
+                                {triageOutcome || "Pending"}
                               </p>
                             </div>
                           </div>

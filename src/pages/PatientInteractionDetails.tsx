@@ -263,7 +263,7 @@ export default function PatientInteractionDetails() {
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Triage Outcome</label>
                     <p className="text-lg">
-                      {shouldShowTriageOutcome() ? (("triage_outcome" in data ? data.triage_outcome : ("triageOutcome" in data ? data.triageOutcome : "—"))) : "—"}
+                      {"triage_outcome" in data ? data.triage_outcome : ("triageOutcome" in data ? data.triageOutcome : "—")}
                     </p>
                   </div>
                 </div>

@@ -13,6 +13,7 @@ router = APIRouter()
 class CaseDetailsItem(BaseModel):
     call_id: uuid.UUID
     phone_number: str
+    user_name: Optional[str]
     last_call: Optional[datetime.datetime]
     status: Optional[str]
     preliminary_diagnosis: Optional[str]
@@ -31,6 +32,7 @@ def get_case_details(db: Session = Depends(get_db)):
         db.query(
             models.Conversations.session_id.label("call_id"),
             models.Conversations.user_id.label("phone_number"),
+            models.Conversations.user_name.label("user_name"),
             models.Conversations.call_end_time.label("last_call"),
             models.Conversations.conversation_status.label("status"),
             models.TriageOutcomes.final_condition.label("preliminary_diagnosis"),
@@ -53,6 +55,7 @@ def get_case_details_by_id(session_id: uuid.UUID, db: Session = Depends(get_db))
         db.query(
             models.Conversations.session_id.label("call_id"),
             models.Conversations.user_id.label("phone_number"),
+            models.Conversations.user_name.label("user_name"),
             models.Conversations.call_end_time.label("last_call"),
             models.Conversations.conversation_status.label("status"),
             models.TriageOutcomes.final_condition.label("preliminary_diagnosis"),

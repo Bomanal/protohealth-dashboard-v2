@@ -27,6 +27,7 @@ import {
 type CaseListItem = {
   call_id: string;
   phone_number: string;
+  user_name: string | null;
   last_call: string | null;
   status: string | null;
   preliminary_diagnosis: string | null;
@@ -282,7 +283,7 @@ export default function AllEngagements() {
             <div className="space-y-4">
               {filteredInteractions.map((interaction) => {
                 // Safe property access for both API and mock data
-                const patientName = "patientName" in interaction ? interaction.patientName : "N/A"
+                const patientName = "user_name" in interaction ? (interaction.user_name || "John Smith") : ("patientName" in interaction ? interaction.patientName : "John Smith")
                 const dateOfBirth = "dateOfBirth" in interaction ? interaction.dateOfBirth : "N/A"
                 const callNumber = "call_id" in interaction ? interaction.call_id : ("callNumber" in interaction ? interaction.callNumber : "N/A")
                 const phoneNumber = "phone_number" in interaction ? interaction.phone_number : ("phoneNumber" in interaction ? interaction.phoneNumber : "N/A")

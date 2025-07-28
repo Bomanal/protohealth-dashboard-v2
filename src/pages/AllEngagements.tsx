@@ -284,7 +284,7 @@ export default function AllEngagements() {
               {filteredInteractions.map((interaction) => {
                 // Safe property access for both API and mock data
                 const patientName = "user_name" in interaction ? (interaction.user_name || "John Smith") : ("patientName" in interaction ? interaction.patientName : "John Smith")
-                const dateOfBirth = "dateOfBirth" in interaction ? interaction.dateOfBirth : "N/A"
+                const dateOfBirth = "dateOfBirth" in interaction ? interaction.dateOfBirth : "1985-03-15"
                 const callNumber = "call_id" in interaction ? interaction.call_id : ("callNumber" in interaction ? interaction.callNumber : "N/A")
                 const phoneNumber = "phone_number" in interaction ? interaction.phone_number : ("phoneNumber" in interaction ? interaction.phoneNumber : "N/A")
                 const preliminaryDiagnosis = "preliminary_diagnosis" in interaction ? interaction.preliminary_diagnosis : ("preliminaryDiagnosis" in interaction ? interaction.preliminaryDiagnosis : "N/A")

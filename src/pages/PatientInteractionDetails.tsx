@@ -215,7 +215,7 @@ export default function PatientInteractionDetails() {
                   </div>
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">DOB</label>
-                    <p className="text-lg">{"dateOfBirth" in data ? data.dateOfBirth : "N/A"}</p>
+                    <p className="text-lg">{"dateOfBirth" in data ? data.dateOfBirth : "1985-03-15"}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Patient ID</label>

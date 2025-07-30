@@ -36,7 +36,7 @@ def get_case_details(db: Session = Depends(get_db)):
             models.Conversations.call_end_time.label("last_call"),
             models.Conversations.conversation_status.label("status"),
             models.TriageOutcomes.final_condition.label("preliminary_diagnosis"),
-            models.TriageOutcomes.triage_outcome.label("triage_outcome"),
+            models.TriageOutcomes.triage_outcome.label("xtriage_outcome"),
             models.ConversationTranscripts.conversation_transcript.label("call_log"),
             models.ConversationTranscripts.conversation_summary.label("summary"),
             models.InitialAssessments.medical_history.label("medical_history"),

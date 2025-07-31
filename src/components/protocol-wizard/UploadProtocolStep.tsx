@@ -57,10 +57,10 @@ export function UploadProtocolStep({ data, onUpdate, onNext, onBack }: UploadPro
 
   return (
     <div className="max-w-4xl mx-auto">
-      <Card>
+      <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Upload className="h-5 w-5" />
+            <Upload className="h-5 w-5 text-primary" />
             Upload Protocol Data
           </CardTitle>
         </CardHeader>

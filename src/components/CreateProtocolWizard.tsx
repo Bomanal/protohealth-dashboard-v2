@@ -132,14 +132,14 @@ export function CreateProtocolWizard() {
                 Back to Protocols
               </Button>
               <div className="h-6 w-px bg-border" />
-              <div>
-                <h1 className="text-xl font-semibold">
-                  Create {protocolData.name || "New Protocol"} Flow
-                </h1>
-                <p className="text-sm text-muted-foreground">
-                  Step {currentStep} of {STEPS.length}: {STEPS[currentStep - 1]?.title}
-                </p>
-              </div>
+            <div>
+              <h1 className="text-xl font-semibold bg-gradient-primary bg-clip-text text-transparent">
+                Create {protocolData.name || "New Protocol"} Flow
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                Step {currentStep} of {STEPS.length}: {STEPS[currentStep - 1]?.title}
+              </p>
+            </div>
             </div>
             <Button variant="outline" onClick={handleSaveDraft}>
               Save as Draft

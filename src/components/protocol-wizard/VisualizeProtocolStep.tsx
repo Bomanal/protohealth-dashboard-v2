@@ -41,10 +41,10 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
 
   return (
     <div className="max-w-6xl mx-auto">
-      <Card>
+      <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5" />
+            <BarChart3 className="h-5 w-5 text-primary" />
             Protocol Visualization
           </CardTitle>
         </CardHeader>

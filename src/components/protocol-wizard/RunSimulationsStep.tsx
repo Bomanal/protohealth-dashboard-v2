@@ -120,10 +120,10 @@ AI: Based on your symptoms, I recommend scheduling a consultation with a cardiol
 
   return (
     <div className="max-w-6xl mx-auto">
-      <Card className="bg-card border-border">
+      <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Play className="h-5 w-5" />
+            <Play className="h-5 w-5 text-primary" />
             Run Live Simulations
           </CardTitle>
         </CardHeader>

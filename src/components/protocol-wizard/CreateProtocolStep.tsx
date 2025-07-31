@@ -36,10 +36,10 @@ export function CreateProtocolStep({ data, onUpdate, onNext }: CreateProtocolSte
 
   return (
     <div className="max-w-2xl mx-auto">
-      <Card>
+      <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
+            <FileText className="h-5 w-5 text-primary" />
             Create New Protocol
           </CardTitle>
         </CardHeader>

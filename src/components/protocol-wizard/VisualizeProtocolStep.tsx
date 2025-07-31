@@ -19,7 +19,6 @@ const mockEndpoints = ["Emergency Referral", "Cardiology Consult", "GP Follow-up
 
 export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtocolStepProps) {
   const [filters, setFilters] = useState({
-    symptoms: [] as string[],
     diagnoses: [] as string[],
     endpoints: [] as string[]
   })
@@ -39,7 +38,7 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
   }
 
   const clearFilters = () => {
-    setFilters({ symptoms: [], diagnoses: [], endpoints: [] })
+    setFilters({ diagnoses: [], endpoints: [] })
   }
 
   const handleProtocolChange = (protocolName: string) => {
@@ -105,34 +104,7 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
               </div>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Symptom Filter */}
-                <div className="space-y-2">
-                  <Label>Filter by Symptom</Label>
-                  <Select onValueChange={(value) => handleFilterChange('symptoms', value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select symptoms..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {mockSymptoms.map((symptom) => (
-                        <SelectItem key={symptom} value={symptom}>{symptom}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <div className="flex flex-wrap gap-1">
-                    {filters.symptoms.map((symptom) => (
-                      <Badge key={symptom} variant="secondary" className="text-xs">
-                        {symptom}
-                        <button
-                          className="ml-1 text-muted-foreground hover:text-foreground"
-                          onClick={() => handleFilterChange('symptoms', symptom)}
-                        >
-                          ×
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
                 {/* Diagnosis Filter */}
                 <div className="space-y-2">
@@ -207,7 +179,7 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
                     <div className="space-y-2">
                       <p className="text-sm text-muted-foreground">Active filters:</p>
                       <div className="flex flex-wrap gap-2 justify-center">
-                        {[...filters.symptoms, ...filters.diagnoses, ...filters.endpoints].map((filter) => (
+                        {[...filters.diagnoses, ...filters.endpoints].map((filter) => (
                           <Badge key={filter} variant="outline">{filter}</Badge>
                         ))}
                       </div>

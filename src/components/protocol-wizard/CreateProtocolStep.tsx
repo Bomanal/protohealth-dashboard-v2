@@ -40,7 +40,7 @@ export function CreateProtocolStep({ data, onUpdate, onNext }: CreateProtocolSte
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-primary" />
-            Create New Protocol
+            Create new inbound protocol
           </CardTitle>
         </CardHeader>
         <CardContent>

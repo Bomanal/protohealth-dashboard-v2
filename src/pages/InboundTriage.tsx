@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { DashboardLayout } from "@/components/DashboardLayout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -21,10 +22,36 @@ import {
   Heart,
   Stethoscope,
   FileText,
-  Calendar
+  Calendar,
+  Clock,
+  AlertTriangle
 } from "lucide-react"
 
+const mockDraftProtocols = [
+  {
+    id: "draft-1",
+    name: "Emergency Cardiac Assessment",
+    description: "Rapid triage for cardiac emergencies",
+    specialty: "cardiology",
+    currentStep: 2,
+    totalSteps: 5,
+    lastModified: new Date(2024, 0, 25),
+    createdBy: "Dr. Sarah Wilson"
+  },
+  {
+    id: "draft-2", 
+    name: "Digestive Issues Protocol",
+    description: "Comprehensive GI symptom assessment",
+    specialty: "gastroenterology",
+    currentStep: 4,
+    totalSteps: 5,
+    lastModified: new Date(2024, 0, 24),
+    createdBy: "Dr. Michael Chen"
+  }
+]
+
 export default function InboundTriage() {
+  const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedDepartment, setSelectedDepartment] = useState("all")
 
@@ -76,7 +103,7 @@ export default function InboundTriage() {
               <Settings className="h-4 w-4 mr-1" />
               Protocol Settings
             </Button>
-            <Button>
+            <Button onClick={() => navigate('/create-protocol')}>
               <Plus className="h-4 w-4 mr-1" />
               Create New Protocol
             </Button>
@@ -228,7 +255,7 @@ export default function InboundTriage() {
                   <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <h3 className="text-lg font-semibold mb-2">No protocols found</h3>
                   <p className="text-muted-foreground mb-4">Create your first triage protocol to get started.</p>
-                  <Button>
+                  <Button onClick={() => navigate('/create-protocol')}>
                     <Plus className="h-4 w-4 mr-1" />
                     Create New Protocol
                   </Button>
@@ -311,6 +338,82 @@ export default function InboundTriage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Draft Protocols Section */}
+        {mockDraftProtocols.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                Draft Protocols ({mockDraftProtocols.length})
+              </CardTitle>
+              <CardDescription>
+                Incomplete protocols that need to be finished before deployment
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {mockDraftProtocols.map((draft) => (
+                  <Card key={draft.id} className="border-dashed border-2 hover:shadow-md transition-shadow">
+                    <CardContent className="p-6">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-4 flex-1">
+                          <div className="flex flex-col items-center">
+                            <AlertTriangle className="h-5 w-5 text-warning" />
+                            <Badge variant="outline" className="mt-2 text-xs border-warning text-warning">
+                              DRAFT
+                            </Badge>
+                          </div>
+                          
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-3">
+                              <h4 className="font-semibold text-lg">{draft.name}</h4>
+                              <Badge variant="outline" className="capitalize">
+                                {draft.specialty}
+                              </Badge>
+                            </div>
+                            
+                            <p className="text-sm text-muted-foreground mb-4">{draft.description}</p>
+                            
+                            <div className="space-y-3">
+                              <div>
+                                <div className="flex justify-between text-sm mb-2">
+                                  <span>Progress</span>
+                                  <span>{draft.currentStep} of {draft.totalSteps} steps</span>
+                                </div>
+                                <Progress value={(draft.currentStep / draft.totalSteps) * 100} className="h-2" />
+                              </div>
+                              
+                              <div className="flex gap-4 text-sm text-muted-foreground">
+                                <span><strong>Created by:</strong> {draft.createdBy}</span>
+                                <span><strong>Last modified:</strong> {draft.lastModified.toLocaleDateString()}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col gap-2 ml-4">
+                          <Button size="sm" onClick={() => navigate('/create-protocol')}>
+                            <Edit className="h-4 w-4 mr-1" />
+                            Continue Editing
+                          </Button>
+                          <div className="flex gap-1">
+                            <Button size="sm" variant="outline">
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                            <Button size="sm" variant="outline">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </DashboardLayout>
   )

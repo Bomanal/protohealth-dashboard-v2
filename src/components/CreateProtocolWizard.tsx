@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, ArrowRight, Check } from "lucide-react"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { CreateProtocolStep } from "./protocol-wizard/CreateProtocolStep"
 import { UploadProtocolStep } from "./protocol-wizard/UploadProtocolStep"
 import { VisualizeProtocolStep } from "./protocol-wizard/VisualizeProtocolStep"
@@ -37,6 +38,7 @@ export function CreateProtocolWizard() {
     specialty: "",
     entryPoint: ""
   })
+  const [showGoLiveConfirm, setShowGoLiveConfirm] = useState(false)
 
   const handleNext = () => {
     if (currentStep < STEPS.length) {
@@ -51,6 +53,10 @@ export function CreateProtocolWizard() {
   }
 
   const handleComplete = () => {
+    setShowGoLiveConfirm(true)
+  }
+
+  const confirmGoLive = () => {
     // Save as completed protocol
     navigate('/inbound-triage')
   }
@@ -128,7 +134,7 @@ export function CreateProtocolWizard() {
               <div className="h-6 w-px bg-border" />
               <div>
                 <h1 className="text-xl font-semibold">
-                  {protocolData.name || "New Protocol"}
+                  Create {protocolData.name || "New Protocol"} Flow
                 </h1>
                 <p className="text-sm text-muted-foreground">
                   Step {currentStep} of {STEPS.length}: {STEPS[currentStep - 1]?.title}
@@ -180,6 +186,28 @@ export function CreateProtocolWizard() {
       <div className="container mx-auto px-6 py-8">
         {renderStep()}
       </div>
+
+      {/* Go Live Confirmation Dialog */}
+      <Dialog open={showGoLiveConfirm} onOpenChange={setShowGoLiveConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Go Live with {protocolData.name}?</DialogTitle>
+            <DialogDescription>
+              Once you publish this protocol, patients will immediately start being able to interact with it. 
+              Make sure you've reviewed all simulations and are satisfied with the protocol's performance.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-3 mt-6">
+            <Button variant="outline" onClick={() => setShowGoLiveConfirm(false)}>
+              Cancel
+            </Button>
+            <Button onClick={confirmGoLive}>
+              <Check className="h-4 w-4 mr-2" />
+              Go Live!
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

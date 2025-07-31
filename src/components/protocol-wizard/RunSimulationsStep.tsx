@@ -4,8 +4,10 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ProtocolData } from "../CreateProtocolWizard"
-import { ArrowLeft, Check, Play, Volume2, MessageSquare, Plus, User, Mic, Phone } from "lucide-react"
+import { ArrowLeft, Check, Play, Volume2, MessageSquare, Plus, User, Mic, Phone, Flag, AlertTriangle, Rocket } from "lucide-react"
+import { toast } from "sonner"
 
 interface RunSimulationsStepProps {
   data: ProtocolData
@@ -51,6 +53,9 @@ export function RunSimulationsStep({ data, onComplete, onBack }: RunSimulationsS
     transcript: string
   } | null>(null)
   const [isRunning, setIsRunning] = useState(false)
+  const [simulationMode, setSimulationMode] = useState<'select' | 'create' | 'live'>('select')
+  const [flagDialogOpen, setFlagDialogOpen] = useState(false)
+  const [flagDescription, setFlagDescription] = useState("")
 
   const runSimulation = async (personaText: string) => {
     setIsRunning(true)
@@ -96,9 +101,26 @@ AI: Based on your symptoms, I recommend scheduling a consultation with a cardiol
 
   const canRunSimulation = selectedPersona || (showCustom && customPersona.trim())
 
+  const handleFlagIssue = () => {
+    setFlagDialogOpen(true)
+  }
+
+  const submitFlag = () => {
+    if (flagDescription.trim()) {
+      setFlagDialogOpen(false)
+      setFlagDescription("")
+      toast.success("Issue flagged successfully")
+    }
+  }
+
+  const handleLiveCall = () => {
+    // Navigate to live call placeholder
+    toast.info("Live call functionality coming soon!")
+  }
+
   return (
     <div className="max-w-6xl mx-auto">
-      <Card>
+      <Card className="bg-card border-border">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Play className="h-5 w-5" />
@@ -106,96 +128,157 @@ AI: Based on your symptoms, I recommend scheduling a consultation with a cardiol
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Persona Selection */}
+          {/* Mode Selection */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Select Patient Persona</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {predefinedPersonas.map((persona) => (
-                <Card 
-                  key={persona.id}
-                  className={`cursor-pointer transition-all ${
-                    selectedPersona === persona.id ? 'ring-2 ring-primary' : 'hover:shadow-md'
-                  }`}
-                  onClick={() => {
-                    setSelectedPersona(persona.id)
-                    setShowCustom(false)
-                  }}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
-                      <User className="h-5 w-5 text-muted-foreground mt-1" />
-                      <div>
-                        <h4 className="font-medium mb-1">{persona.name}</h4>
-                        <p className="text-sm text-muted-foreground">{persona.description}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            {/* Custom Persona Option */}
-            <Card 
-              className={`cursor-pointer transition-all ${
-                showCustom ? 'ring-2 ring-primary' : 'hover:shadow-md'
-              }`}
-              onClick={() => {
-                setShowCustom(true)
-                setSelectedPersona(null)
-              }}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3 mb-3">
-                  <Plus className="h-5 w-5 text-muted-foreground" />
+            <h3 className="text-lg font-semibold">Choose Simulation Type</h3>
+            <div className="grid grid-cols-3 gap-4">
+              <Card 
+                className={`cursor-pointer transition-all ${
+                  simulationMode === 'select' ? 'ring-2 ring-primary' : 'hover:shadow-md'
+                }`}
+                onClick={() => setSimulationMode('select')}
+              >
+                <CardContent className="p-4 text-center">
+                  <User className="h-6 w-6 mx-auto mb-2 text-primary" />
+                  <h4 className="font-medium">Select Patient Persona</h4>
+                  <p className="text-sm text-muted-foreground">Choose from predefined scenarios</p>
+                </CardContent>
+              </Card>
+              
+              <Card 
+                className={`cursor-pointer transition-all ${
+                  simulationMode === 'create' ? 'ring-2 ring-primary' : 'hover:shadow-md'
+                }`}
+                onClick={() => setSimulationMode('create')}
+              >
+                <CardContent className="p-4 text-center">
+                  <Plus className="h-6 w-6 mx-auto mb-2 text-primary" />
                   <h4 className="font-medium">Create Custom Persona</h4>
-                </div>
-                
-                {showCustom && (
-                  <div className="space-y-2">
-                    <Label htmlFor="custom-persona">Describe the patient scenario</Label>
-                    <Textarea
-                      id="custom-persona"
-                      value={customPersona}
-                      onChange={(e) => setCustomPersona(e.target.value)}
-                      placeholder="e.g., 55yo female with intermittent chest pain, history of hypertension..."
-                      rows={3}
-                    />
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                  <p className="text-sm text-muted-foreground">Define your own patient scenario</p>
+                </CardContent>
+              </Card>
+              
+              <Card 
+                className={`cursor-pointer transition-all ${
+                  simulationMode === 'live' ? 'ring-2 ring-primary' : 'hover:shadow-md'
+                }`}
+                onClick={() => setSimulationMode('live')}
+              >
+                <CardContent className="p-4 text-center">
+                  <Phone className="h-6 w-6 mx-auto mb-2 text-primary" />
+                  <h4 className="font-medium">Do a Live Call</h4>
+                  <p className="text-sm text-muted-foreground">Real-time interaction testing</p>
+                </CardContent>
+              </Card>
+            </div>
           </div>
+
+          {/* Persona Selection */}
+          {simulationMode === 'select' && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Select Patient Persona</h3>
+            
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {predefinedPersonas.map((persona) => (
+                  <Card 
+                    key={persona.id}
+                    className={`cursor-pointer transition-all ${
+                      selectedPersona === persona.id ? 'ring-2 ring-primary' : 'hover:shadow-md'
+                    }`}
+                    onClick={() => {
+                      setSelectedPersona(persona.id)
+                      setShowCustom(false)
+                    }}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        <User className="h-5 w-5 text-muted-foreground mt-1" />
+                        <div>
+                          <h4 className="font-medium mb-1">{persona.name}</h4>
+                          <p className="text-sm text-muted-foreground">{persona.description}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Custom Persona Creation */}
+          {simulationMode === 'create' && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Create Custom Persona</h3>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="custom-persona">Describe the patient scenario</Label>
+                      <Textarea
+                        id="custom-persona"
+                        value={customPersona}
+                        onChange={(e) => setCustomPersona(e.target.value)}
+                        placeholder="e.g., 55yo female with intermittent chest pain, history of hypertension..."
+                        rows={4}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Live Call */}
+          {simulationMode === 'live' && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Live Call Simulation</h3>
+              <Card>
+                <CardContent className="p-6 text-center">
+                  <Phone className="h-12 w-12 mx-auto mb-4 text-primary" />
+                  <h4 className="font-medium mb-2">Real-time Protocol Testing</h4>
+                  <p className="text-muted-foreground mb-4">
+                    Test your protocol with a live AI interaction. Speak naturally and see how the protocol responds.
+                  </p>
+                  <Button onClick={handleLiveCall}>
+                    <Phone className="h-4 w-4 mr-2" />
+                    Start Live Call
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
           {/* Simulation Controls */}
-          <div className="flex gap-4">
-            <Button 
-              onClick={handleRunSimulation}
-              disabled={!canRunSimulation || isRunning}
-              className="flex-1"
-            >
-              {isRunning ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2" />
-                  Running Simulation...
-                </>
-              ) : (
-                <>
-                  <MessageSquare className="h-4 w-4 mr-2" />
-                  Run Text Simulation
-                </>
-              )}
-            </Button>
-            
-            <Button 
-              variant="outline" 
-              disabled={!canRunSimulation}
-              className="flex-1"
-            >
-              <Mic className="h-4 w-4 mr-2" />
-              Run Audio Simulation
-            </Button>
-          </div>
+          {(simulationMode === 'select' || simulationMode === 'create') && (
+            <div className="flex gap-4">
+              <Button 
+                onClick={handleRunSimulation}
+                disabled={!canRunSimulation || isRunning}
+                className="flex-1"
+              >
+                {isRunning ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2" />
+                    Running Simulation...
+                  </>
+                ) : (
+                  <>
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    Run Text Simulation
+                  </>
+                )}
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                disabled={!canRunSimulation}
+                className="flex-1"
+              >
+                <Mic className="h-4 w-4 mr-2" />
+                Run Audio Simulation
+              </Button>
+            </div>
+          )}
 
           {/* Simulation Results */}
           {simulationResult && (
@@ -237,6 +320,14 @@ AI: Based on your symptoms, I recommend scheduling a consultation with a cardiol
                     <Phone className="h-4 w-4 mr-2" />
                     Test Live Call
                   </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleFlagIssue}
+                  >
+                    <Flag className="h-4 w-4 mr-2" />
+                    Flag Issue
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -248,12 +339,57 @@ AI: Based on your symptoms, I recommend scheduling a consultation with a cardiol
               Back
             </Button>
             <Button onClick={onComplete}>
-              <Check className="h-4 w-4 mr-2" />
-              Complete Protocol Creation
+              <Rocket className="h-4 w-4 mr-2" />
+              Go Live!
             </Button>
           </div>
         </CardContent>
       </Card>
+
+      {/* Flag Issue Dialog */}
+      <Dialog open={flagDialogOpen} onOpenChange={setFlagDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-warning" />
+              Flag Issue with Simulation
+            </DialogTitle>
+            <DialogDescription>
+              Describe the issue you found with this simulation. This will help improve the protocol.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="issue-description">Issue Description</Label>
+              <Textarea
+                id="issue-description"
+                value={flagDescription}
+                onChange={(e) => setFlagDescription(e.target.value)}
+                placeholder="Describe what's wrong with this simulation..."
+                rows={4}
+              />
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setFlagDialogOpen(false)
+                  setFlagDescription("")
+                }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={submitFlag}
+                disabled={!flagDescription.trim()}
+              >
+                <Flag className="h-4 w-4 mr-2" />
+                Flag Issue
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -4,8 +4,11 @@ import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
 import { ProtocolData } from "../CreateProtocolWizard"
-import { ArrowLeft, ArrowRight, Play, FileText, Volume2, MessageSquare, Eye, User } from "lucide-react"
+import { ArrowLeft, ArrowRight, Play, FileText, Volume2, MessageSquare, Eye, User, Flag, AlertTriangle } from "lucide-react"
+import { toast } from "sonner"
 
 interface ReviewSimulationsStepProps {
   data: ProtocolData
@@ -21,7 +24,9 @@ const mockSimulations = [
     diagnosis: "Suspected MI",
     thread: "Chest Pain → Severity Assessment → Associated Symptoms → Risk Factors → Emergency Protocol",
     audioLength: "4:32",
-    hasTranscript: true
+    hasTranscript: true,
+    hasIssue: false,
+    issueDescription: ""
   },
   {
     id: 2,
@@ -30,7 +35,9 @@ const mockSimulations = [
     diagnosis: "Stable Angina",
     thread: "Chest Pain → Exercise Related → Previous Episodes → Cardiology Referral",
     audioLength: "3:18",
-    hasTranscript: true
+    hasTranscript: true,
+    hasIssue: false,
+    issueDescription: ""
   },
   {
     id: 3,
@@ -39,7 +46,9 @@ const mockSimulations = [
     diagnosis: "Anxiety-related",
     thread: "Chest Pain → Character Assessment → Stress Factors → Reassurance Protocol",
     audioLength: "5:45",
-    hasTranscript: true
+    hasTranscript: true,
+    hasIssue: false,
+    issueDescription: ""
   },
   {
     id: 4,
@@ -48,7 +57,9 @@ const mockSimulations = [
     diagnosis: "Possible Heart Failure",
     thread: "Chest Pain → Gradual Onset → Associated Fatigue → GP Referral",
     audioLength: "6:12",
-    hasTranscript: true
+    hasTranscript: true,
+    hasIssue: false,
+    issueDescription: ""
   },
   {
     id: 5,
@@ -57,12 +68,18 @@ const mockSimulations = [
     diagnosis: "Arrhythmia",
     thread: "Palpitations → Heart Rate Assessment → Chest Symptoms → Cardiology",
     audioLength: "4:05",
-    hasTranscript: true
+    hasTranscript: true,
+    hasIssue: false,
+    issueDescription: ""
   }
 ]
 
 export function ReviewSimulationsStep({ data, onNext, onBack }: ReviewSimulationsStepProps) {
   const [selectedSimulation, setSelectedSimulation] = useState<typeof mockSimulations[0] | null>(null)
+  const [simulations, setSimulations] = useState(mockSimulations)
+  const [flagDialogOpen, setFlagDialogOpen] = useState(false)
+  const [flagSimulationId, setFlagSimulationId] = useState<number | null>(null)
+  const [flagDescription, setFlagDescription] = useState("")
 
   const getOutcomeBadgeVariant = (outcome: string) => {
     switch (outcome) {
@@ -79,9 +96,28 @@ export function ReviewSimulationsStep({ data, onNext, onBack }: ReviewSimulation
     }
   }
 
+  const handleFlagIssue = (simulationId: number) => {
+    setFlagSimulationId(simulationId)
+    setFlagDialogOpen(true)
+  }
+
+  const submitFlag = () => {
+    if (flagSimulationId && flagDescription.trim()) {
+      setSimulations(prev => prev.map(sim => 
+        sim.id === flagSimulationId 
+          ? { ...sim, hasIssue: true, issueDescription: flagDescription }
+          : sim
+      ))
+      setFlagDialogOpen(false)
+      setFlagDescription("")
+      setFlagSimulationId(null)
+      toast.success("Issue flagged successfully")
+    }
+  }
+
   return (
     <div className="max-w-7xl mx-auto">
-      <Card>
+      <Card className="bg-card border-border">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
@@ -101,9 +137,16 @@ export function ReviewSimulationsStep({ data, onNext, onBack }: ReviewSimulation
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {mockSimulations.map((simulation) => (
+                {simulations.map((simulation) => (
                   <TableRow key={simulation.id}>
-                    <TableCell className="font-medium">#{simulation.id}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        #{simulation.id}
+                        {simulation.hasIssue && (
+                          <Flag className="h-4 w-4 text-warning" />
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell className="max-w-xs">
                       <div className="flex items-start gap-2">
                         <User className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
@@ -180,6 +223,13 @@ export function ReviewSimulationsStep({ data, onNext, onBack }: ReviewSimulation
                         <Button size="sm" variant="outline">
                           <MessageSquare className="h-4 w-4" />
                         </Button>
+                        <Button 
+                          size="sm" 
+                          variant={simulation.hasIssue ? "destructive" : "outline"}
+                          onClick={() => handleFlagIssue(simulation.id)}
+                        >
+                          <Flag className="h-4 w-4" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -190,27 +240,33 @@ export function ReviewSimulationsStep({ data, onNext, onBack }: ReviewSimulation
 
           <div className="bg-muted/50 rounded-lg p-4">
             <h3 className="font-semibold mb-2">Simulation Summary</h3>
-            <div className="grid grid-cols-4 gap-4 text-sm">
+            <div className="grid grid-cols-5 gap-4 text-sm">
               <div>
                 <span className="text-muted-foreground">Total Simulations:</span>
-                <div className="font-medium">{mockSimulations.length}</div>
+                <div className="font-medium">{simulations.length}</div>
               </div>
               <div>
                 <span className="text-muted-foreground">Emergency Referrals:</span>
                 <div className="font-medium text-destructive">
-                  {mockSimulations.filter(s => s.outcome === "Emergency Referral").length}
+                  {simulations.filter(s => s.outcome === "Emergency Referral").length}
                 </div>
               </div>
               <div>
                 <span className="text-muted-foreground">Specialist Referrals:</span>
                 <div className="font-medium">
-                  {mockSimulations.filter(s => s.outcome === "Cardiology Consult").length}
+                  {simulations.filter(s => s.outcome === "Cardiology Consult").length}
                 </div>
               </div>
               <div>
                 <span className="text-muted-foreground">Self-Care Outcomes:</span>
                 <div className="font-medium text-success">
-                  {mockSimulations.filter(s => s.outcome === "Self-Care with Follow-up").length}
+                  {simulations.filter(s => s.outcome === "Self-Care with Follow-up").length}
+                </div>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Flagged Issues:</span>
+                <div className="font-medium text-warning">
+                  {simulations.filter(s => s.hasIssue).length}
                 </div>
               </div>
             </div>
@@ -228,6 +284,52 @@ export function ReviewSimulationsStep({ data, onNext, onBack }: ReviewSimulation
           </div>
         </CardContent>
       </Card>
+
+      {/* Flag Issue Dialog */}
+      <Dialog open={flagDialogOpen} onOpenChange={setFlagDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-warning" />
+              Flag Issue with Simulation #{flagSimulationId}
+            </DialogTitle>
+            <DialogDescription>
+              Describe the issue you found with this simulation. This will help improve the protocol.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="issue-description">Issue Description</Label>
+              <Textarea
+                id="issue-description"
+                value={flagDescription}
+                onChange={(e) => setFlagDescription(e.target.value)}
+                placeholder="Describe what's wrong with this simulation..."
+                rows={4}
+              />
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setFlagDialogOpen(false)
+                  setFlagDescription("")
+                  setFlagSimulationId(null)
+                }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={submitFlag}
+                disabled={!flagDescription.trim()}
+              >
+                <Flag className="h-4 w-4 mr-2" />
+                Flag Issue
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

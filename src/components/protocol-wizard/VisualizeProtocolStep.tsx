@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { ProtocolData } from "../CreateProtocolWizard"
-import { ArrowLeft, ArrowRight, Filter, BarChart3, RefreshCw } from "lucide-react"
+import { ArrowLeft, ArrowRight, Filter, BarChart3, RefreshCw, ChevronDown } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 
 interface VisualizeProtocolStepProps {
@@ -23,6 +23,11 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
     diagnoses: [] as string[],
     endpoints: [] as string[]
   })
+  const [selectedProtocol, setSelectedProtocol] = useState<string>(data.name || "Current Protocol")
+  const [showProtocolSelector, setShowProtocolSelector] = useState(false)
+
+  // Mock available protocols
+  const availableProtocols = ["Chest Pain Protocol", "Shortness of Breath Protocol", "Cardiac Arrest Protocol", "Stroke Protocol"]
 
   const handleFilterChange = (type: keyof typeof filters, value: string) => {
     setFilters(prev => ({
@@ -37,16 +42,50 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
     setFilters({ symptoms: [], diagnoses: [], endpoints: [] })
   }
 
+  const handleProtocolChange = (protocolName: string) => {
+    setSelectedProtocol(protocolName)
+    setShowProtocolSelector(false)
+    // Clear existing filters when switching protocols
+    clearFilters()
+  }
+
   const hasActiveFilters = Object.values(filters).some(arr => arr.length > 0)
 
   return (
     <div className="max-w-6xl mx-auto">
       <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5 text-primary" />
-            Protocol Visualization
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-primary" />
+              Visualize your {selectedProtocol} protocol
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setShowProtocolSelector(!showProtocolSelector)}
+              className="flex items-center gap-2"
+            >
+              Change protocol
+              <ChevronDown className="h-4 w-4" />
+            </Button>
           </CardTitle>
+          {showProtocolSelector && (
+            <div className="mt-4">
+              <Select value={selectedProtocol} onValueChange={handleProtocolChange}>
+                <SelectTrigger className="w-64">
+                  <SelectValue placeholder="Select a protocol" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableProtocols.map((protocol) => (
+                    <SelectItem key={protocol} value={protocol}>
+                      {protocol}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Filter Controls */}
@@ -125,10 +164,10 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
 
                 {/* Endpoint Filter */}
                 <div className="space-y-2">
-                  <Label>Filter by Endpoint</Label>
+                  <Label>Filter by Triage Outcome</Label>
                   <Select onValueChange={(value) => handleFilterChange('endpoints', value)}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select endpoints..." />
+                      <SelectValue placeholder="Select triage outcomes..." />
                     </SelectTrigger>
                     <SelectContent>
                       {mockEndpoints.map((endpoint) => (

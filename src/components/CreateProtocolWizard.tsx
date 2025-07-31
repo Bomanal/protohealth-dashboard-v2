@@ -173,7 +173,6 @@ export function CreateProtocolWizard() {
                   </div>
                   <div className="text-xs text-center mt-1 max-w-20">
                     <div className="font-medium">{step.title}</div>
-                    <div className="text-muted-foreground">{step.description}</div>
                   </div>
                 </div>
               ))}

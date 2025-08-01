@@ -28,8 +28,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 
 const manageProtocolsItems = [
   { title: "Inbound Triage", url: "/inbound-triage", icon: MessageSquare },
-  { title: "Inbound Scheduling", url: "/inbound-scheduling", icon: Calendar },
-  { title: "Inbound Patient Intake", url: "/inbound-intake", icon: UserPlus },
+  { title: "Inbound Scheduling", url: "/inbound-scheduling", icon: Calendar, comingSoon: true },
+  { title: "Inbound Patient Intake", url: "/inbound-intake", icon: UserPlus, comingSoon: true },
   { title: "Outbound Communications", url: "/outbound-agents", icon: Send },
 ]
 
@@ -83,11 +83,23 @@ export function AppSidebar() {
                 <SidebarMenu>
                   {manageProtocolsItems.map((item) => (
                     <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton asChild>
-                        <NavLink to={item.url} className={getNavCls}>
-                          <item.icon className="h-4 w-4" />
-                          {!collapsed && <span>{item.title}</span>}
-                        </NavLink>
+                      <SidebarMenuButton asChild={!item.comingSoon}>
+                        {item.comingSoon ? (
+                          <div className="flex items-center gap-2 px-2 py-1.5 text-sidebar-foreground/50 cursor-not-allowed">
+                            <item.icon className="h-4 w-4" />
+                            {!collapsed && (
+                              <div className="flex items-center gap-2">
+                                <span>{item.title}</span>
+                                <span className="text-xs bg-sidebar-accent/50 px-2 py-0.5 rounded-full">Coming Soon</span>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <NavLink to={item.url} className={getNavCls}>
+                            <item.icon className="h-4 w-4" />
+                            {!collapsed && <span>{item.title}</span>}
+                          </NavLink>
+                        )}
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   ))}

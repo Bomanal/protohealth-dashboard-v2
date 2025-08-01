@@ -14,6 +14,7 @@ import InboundScheduling from "./pages/InboundScheduling";
 import InboundIntake from "./pages/InboundIntake";
 import PatientInteractionDetails from "./pages/PatientInteractionDetails";
 import CreateTriageProtocol from "./pages/CreateTriageProtocol";
+import CreateProtocol from "./pages/CreateProtocol";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -37,6 +38,7 @@ const App = () => (
           <Route path="/inbound-intake" element={<InboundIntake />} />
           <Route path="/patient-interaction/:id" element={<PatientInteractionDetails />} />
           <Route path="/create-triage-protocol" element={<CreateTriageProtocol />} />
+          <Route path="/create-protocol" element={<CreateProtocol />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

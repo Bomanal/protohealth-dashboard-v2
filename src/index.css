@@ -18,10 +18,10 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 210 11% 15%;
 
-    /* ProtoHealth gradient colors */
-    --primary: 221 83% 53%;
+    /* ProtoHealth gradient colors - More purple like logo */
+    --primary: 247 83% 58%;
     --primary-foreground: 0 0% 100%;
-    --primary-light: 230 100% 70%;
+    --primary-light: 250 100% 75%;
 
     --secondary: 210 40% 96%;
     --secondary-foreground: 210 11% 15%;
@@ -37,7 +37,7 @@ All colors MUST be HSL.
 
     --border: 214 31% 91%;
     --input: 214 31% 91%;
-    --ring: 221 83% 53%;
+    --ring: 247 83% 58%;
 
     --radius: 0.75rem;
 
@@ -46,21 +46,21 @@ All colors MUST be HSL.
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
-    --info: 221 83% 53%;
+    --info: 247 83% 58%;
     --info-foreground: 0 0% 100%;
 
     /* Sidebar specific colors - Light */
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 210 11% 20%;
-    --sidebar-primary: 221 83% 53%;
+    --sidebar-primary: 247 83% 58%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 210 40% 94%;
     --sidebar-accent-foreground: 210 11% 15%;
     --sidebar-border: 214 31% 88%;
-    --sidebar-ring: 221 83% 53%;
+    --sidebar-ring: 247 83% 58%;
 
-    /* ProtoHealth brand gradient */
-    --gradient-primary: linear-gradient(135deg, hsl(221, 83%, 53%), hsl(260, 100%, 65%));
+    /* ProtoHealth brand gradient - Updated to match logo colors */
+    --gradient-primary: linear-gradient(135deg, hsl(225, 89%, 61%), hsl(267, 89%, 65%));
     --gradient-subtle: linear-gradient(180deg, hsl(210, 40%, 98%), hsl(210, 40%, 96%));
   }
 

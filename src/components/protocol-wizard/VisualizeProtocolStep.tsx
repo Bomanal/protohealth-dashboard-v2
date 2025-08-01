@@ -4,8 +4,10 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { ProtocolData } from "../CreateProtocolWizard"
-import { ArrowLeft, ArrowRight, Filter, BarChart3, RefreshCw, ChevronDown } from "lucide-react"
+import { ArrowLeft, ArrowRight, Filter, BarChart3, RefreshCw, ChevronDown, Loader2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { useProtocols } from "@/hooks/useProtocols"
+import { useFinalOutcomes } from "@/hooks/useFinalOutcomes"
 
 interface VisualizeProtocolStepProps {
   data: ProtocolData
@@ -14,19 +16,19 @@ interface VisualizeProtocolStepProps {
 }
 
 const mockSymptoms = ["Chest Pain", "Shortness of Breath", "Dizziness", "Palpitations", "Fatigue"]
-const mockDiagnoses = ["Angina", "Myocardial Infarction", "Arrhythmia", "Heart Failure", "Anxiety"]
 const mockEndpoints = ["Emergency Referral", "Cardiology Consult", "GP Follow-up", "Self-Care", "Pharmacy Referral"]
 
 export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtocolStepProps) {
+  const { protocols, loading, error } = useProtocols();
+  const { finalOutcomes, loading: loadingOutcomes, fetchFinalOutcomes } = useFinalOutcomes();
+  
   const [filters, setFilters] = useState({
     diagnoses: [] as string[],
     endpoints: [] as string[]
   })
   const [selectedProtocol, setSelectedProtocol] = useState<string>(data.name || "Current Protocol")
+  const [selectedProtocolId, setSelectedProtocolId] = useState<string | null>(null)
   const [showProtocolSelector, setShowProtocolSelector] = useState(false)
-
-  // Mock available protocols
-  const availableProtocols = ["Chest Pain Protocol", "Shortness of Breath Protocol", "Cardiac Arrest Protocol", "Stroke Protocol"]
 
   const handleFilterChange = (type: keyof typeof filters, value: string) => {
     setFilters(prev => ({
@@ -41,11 +43,17 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
     setFilters({ diagnoses: [], endpoints: [] })
   }
 
-  const handleProtocolChange = (protocolName: string) => {
-    setSelectedProtocol(protocolName)
-    setShowProtocolSelector(false)
-    // Clear existing filters when switching protocols
-    clearFilters()
+  const handleProtocolChange = (protocolId: string) => {
+    const selectedProtocolData = protocols.find(p => p.protocol_id === protocolId)
+    if (selectedProtocolData) {
+      setSelectedProtocol(selectedProtocolData.protocol_name)
+      setSelectedProtocolId(protocolId)
+      setShowProtocolSelector(false)
+      clearFilters()
+      
+      // Fetch final outcomes for the selected protocol
+      fetchFinalOutcomes(protocolId)
+    }
   }
 
   const hasActiveFilters = Object.values(filters).some(arr => arr.length > 0)
@@ -64,23 +72,30 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
               size="sm"
               onClick={() => setShowProtocolSelector(!showProtocolSelector)}
               className="flex items-center gap-2"
+              disabled={loading}
             >
               Change protocol
-              <ChevronDown className="h-4 w-4" />
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronDown className="h-4 w-4" />}
             </Button>
           </CardTitle>
           {showProtocolSelector && (
             <div className="mt-4">
-              <Select value={selectedProtocol} onValueChange={handleProtocolChange}>
+              <Select value={selectedProtocolId || ""} onValueChange={handleProtocolChange} disabled={loading}>
                 <SelectTrigger className="w-64">
-                  <SelectValue placeholder="Select a protocol" />
+                  <SelectValue placeholder={loading ? "Loading protocols..." : "Select a protocol"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {availableProtocols.map((protocol) => (
-                    <SelectItem key={protocol} value={protocol}>
-                      {protocol}
-                    </SelectItem>
-                  ))}
+                  {error ? (
+                    <div className="p-2 text-sm text-destructive">
+                      Error loading protocols: {error}
+                    </div>
+                  ) : (
+                    protocols.map((protocol) => (
+                      <SelectItem key={protocol.protocol_id} value={protocol.protocol_id}>
+                        {protocol.protocol_name}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -106,16 +121,28 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-                {/* Diagnosis Filter */}
+                {/* Final Outcomes Filter */}
                 <div className="space-y-2">
-                  <Label>Filter by Diagnosis</Label>
-                  <Select onValueChange={(value) => handleFilterChange('diagnoses', value)}>
+                  <Label>Filter by Final Outcome</Label>
+                  <Select 
+                    onValueChange={(value) => handleFilterChange('diagnoses', value)} 
+                    disabled={loadingOutcomes || !selectedProtocolId}
+                  >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select diagnoses..." />
+                      <SelectValue placeholder={
+                        !selectedProtocolId 
+                          ? "Select a protocol first..." 
+                          : loadingOutcomes 
+                            ? "Loading outcomes..." 
+                            : "Select final outcomes..."
+                      } />
+                      {loadingOutcomes && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
                     </SelectTrigger>
                     <SelectContent>
-                      {mockDiagnoses.map((diagnosis) => (
-                        <SelectItem key={diagnosis} value={diagnosis}>{diagnosis}</SelectItem>
+                      {finalOutcomes.map((outcome) => (
+                        <SelectItem key={outcome.thread_id} value={outcome.final_outcome}>
+                          {outcome.final_outcome}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -175,6 +202,11 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
                   <p className="text-muted-foreground mb-4">
                     Interactive protocol visualization will be displayed here
                   </p>
+                  {selectedProtocolId && (
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Protocol ID: {selectedProtocolId} | Final Outcomes: {finalOutcomes.length}
+                    </p>
+                  )}
                   {hasActiveFilters && (
                     <div className="space-y-2">
                       <p className="text-sm text-muted-foreground">Active filters:</p>

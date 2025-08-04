@@ -26,21 +26,48 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
     diagnoses: [] as string[],
     endpoints: [] as string[]
   })
+  const [selectedThreadIds, setSelectedThreadIds] = useState<string[]>([])
   const [selectedProtocol, setSelectedProtocol] = useState<string>(data.name || "Current Protocol")
   const [selectedProtocolId, setSelectedProtocolId] = useState<string | null>(null)
   const [showProtocolSelector, setShowProtocolSelector] = useState(false)
 
   const handleFilterChange = (type: keyof typeof filters, value: string) => {
-    setFilters(prev => ({
-      ...prev,
-      [type]: prev[type].includes(value) 
-        ? prev[type].filter(item => item !== value)
-        : [...prev[type], value]
-    }))
+    if (type === 'diagnoses') {
+      // Handle final outcomes and their thread IDs
+      const outcome = finalOutcomes.find(o => o.final_outcome === value)
+      if (outcome) {
+        const isAlreadySelected = filters.diagnoses.includes(value)
+        
+        if (isAlreadySelected) {
+          // Remove outcome and its thread ID
+          setFilters(prev => ({
+            ...prev,
+            diagnoses: prev.diagnoses.filter(item => item !== value)
+          }))
+          setSelectedThreadIds(prev => prev.filter(id => id !== outcome.thread_id))
+        } else {
+          // Add outcome and its thread ID
+          setFilters(prev => ({
+            ...prev,
+            diagnoses: [...prev.diagnoses, value]
+          }))
+          setSelectedThreadIds(prev => [...prev, outcome.thread_id])
+        }
+      }
+    } else {
+      // Handle other filter types (endpoints) normally
+      setFilters(prev => ({
+        ...prev,
+        [type]: prev[type].includes(value) 
+          ? prev[type].filter(item => item !== value)
+          : [...prev[type], value]
+      }))
+    }
   }
 
   const clearFilters = () => {
     setFilters({ diagnoses: [], endpoints: [] })
+    setSelectedThreadIds([])
   }
 
   const handleProtocolChange = (protocolId: string) => {
@@ -57,6 +84,22 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
   }
 
   const hasActiveFilters = Object.values(filters).some(arr => arr.length > 0)
+
+  const fetchThreadDetails = async () => {
+    if (selectedThreadIds.length === 0) return
+    
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/threads/details?thread_ids=${selectedThreadIds.join(',')}`)
+      if (!response.ok) {
+        throw new Error('Failed to fetch thread details')
+      }
+      const data = await response.json()
+      console.log('Thread details:', data) // You can handle this data as needed
+      return data
+    } catch (err) {
+      console.error('Error fetching thread details:', err)
+    }
+  }
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -203,9 +246,10 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
                     Interactive protocol visualization will be displayed here
                   </p>
                   {selectedProtocolId && (
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Protocol ID: {selectedProtocolId} | Final Outcomes: {finalOutcomes.length}
-                    </p>
+                    <div className="text-sm text-muted-foreground mb-4 space-y-1">
+                      <p>Protocol ID: {selectedProtocolId} | Final Outcomes: {finalOutcomes.length}</p>
+                      <p>Selected Thread IDs: [{selectedThreadIds.join(', ')}]</p>
+                    </div>
                   )}
                   {hasActiveFilters && (
                     <div className="space-y-2">
@@ -216,6 +260,16 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
                         ))}
                       </div>
                     </div>
+                  )}
+                  {selectedThreadIds.length > 0 && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={fetchThreadDetails}
+                      className="mt-2"
+                    >
+                      Fetch Thread Details ({selectedThreadIds.length} threads)
+                    </Button>
                   )}
                 </div>
               </div>

@@ -1,11 +1,10 @@
 from typing import Optional
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKeyConstraint, Integer, PrimaryKeyConstraint, Text, Uuid, text, String, UniqueConstraint, Index
+from sqlalchemy import CheckConstraint, DateTime, ForeignKeyConstraint, Integer, PrimaryKeyConstraint, Text, Uuid, text, String, UniqueConstraint, Index, Boolean, func
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 import datetime
 import uuid
-
 class Base(DeclarativeBase):
     pass
 
@@ -93,6 +92,8 @@ class TriageOutcomes(Base):
     final_message_to_user: Mapped[Optional[str]] = mapped_column(Text)
 
 
+# New tables based on the provided SQL schema
+
 class TriageProtocolsList(Base):
     __tablename__ = 'triage_protocols_list'
     __table_args__ = (
@@ -105,70 +106,83 @@ class TriageProtocolsList(Base):
     protocol_name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     protocol_description: Mapped[str] = mapped_column(Text, nullable=False)
 
+    # Add this relationship
+    protocol_threads = relationship("ProtocolThreads", back_populates="protocol")
 
-class MedicalConditions(Base):
-    __tablename__ = 'medical_conditions'
+
+class ProtocolThreads(Base):
+    __tablename__ = 'protocol_threads'
     __table_args__ = (
-        ForeignKeyConstraint(['protocol_id'], ['triage_protocols_list.protocol_id'], name='fk_mc_protocol_id'),
-        Index('idx_mc_protocol_id', 'protocol_id'),
-        Index('idx_mc_triage_decision', 'triage_decision')
-    )
-
-    condition_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    protocol_id: Mapped[str] = mapped_column(String(4), nullable=False)
-    final_condition: Mapped[str] = mapped_column(Text, nullable=False)
-    triage_decision: Mapped[str] = mapped_column(Text, nullable=False)
-    home_care_advice: Mapped[Optional[str]] = mapped_column(Text)
-
-
-class NodeValuesQuestions(Base):
-    __tablename__ = 'node_values_questions'
-    __table_args__ = (
-        PrimaryKeyConstraint('protocol_id', 'node_id', 'value', name='node_values_questions_pkey'),
-        ForeignKeyConstraint(['protocol_id'], ['triage_protocols_list.protocol_id'], name='fk_nvq_protocol_id'),
-        Index('idx_nvq_protocol_name', 'protocol_name'),
-        Index('idx_nvq_node_id', 'node_id'),
-        Index('idx_nvq_node_name', 'node_name'),
-        Index('idx_nvq_node_category', 'node_category')
-    )
-
-    protocol_id: Mapped[str] = mapped_column(String(4), primary_key=True)
-    protocol_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    node_id: Mapped[str] = mapped_column(String(4), primary_key=True)
-    node_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    node_category: Mapped[str] = mapped_column(String(100), nullable=False)
-    snomed_nomenclature: Mapped[Optional[str]] = mapped_column(String(100))
-    question: Mapped[str] = mapped_column(Text, nullable=False)
-    value: Mapped[str] = mapped_column(Text, primary_key=True)
-
-
-class DecisionThreads(Base):
-    __tablename__ = 'decision_threads'
-    __table_args__ = (
-        PrimaryKeyConstraint('thread_id', name='decision_threads_pkey'),
-        ForeignKeyConstraint(['protocol_id'], ['triage_protocols_list.protocol_id'], name='fk_dt_protocol_id'),
-        Index('idx_dt_protocol_id', 'protocol_id')
+        PrimaryKeyConstraint('thread_id', name='protocol_threads_pkey'),
+        ForeignKeyConstraint(['protocol_id'], ['triage_protocols_list.protocol_id'], name='fk_pt_protocol_id'),
+        Index('idx_pt_protocol_id', 'protocol_id')
     )
 
     thread_id: Mapped[str] = mapped_column(String(4), primary_key=True)
     protocol_id: Mapped[str] = mapped_column(String(4), nullable=False)
-    final_outcome: Mapped[Optional[str]] = mapped_column(Text)
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime, server_default=func.now())
+
+    # Relationship to TriageProtocolsList
+    protocol = relationship("TriageProtocolsList", back_populates="protocol_threads")
+    # Relationship to ThreadNodeValues
+    thread_node_values = relationship("ThreadNodeValues", back_populates="protocol_thread")
+    # Relationship to ThreadOutcomes
+    thread_outcome = relationship("ThreadOutcomes", back_populates="protocol_thread", uselist=False)
 
 
-class DecisionThreadSteps(Base):
-    __tablename__ = 'decision_thread_steps'
+class Nodes(Base):
+    __tablename__ = 'nodes'
     __table_args__ = (
-        ForeignKeyConstraint(['thread_id'], ['decision_threads.thread_id'], name='fk_dts_thread_id'),
-        UniqueConstraint('thread_id', 'step_number', name='uq_thread_step'),
-        Index('idx_dts_thread_id', 'thread_id'),
-        Index('idx_dts_node_id', 'node_id')
+        PrimaryKeyConstraint('node_id', name='nodes_pkey'),
+        Index('idx_nodes_node_name', 'node_name'),
+        Index('idx_nodes_node_category', 'node_category')
     )
 
-    thread_step_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    thread_id: Mapped[str] = mapped_column(String(4), nullable=False)
-    step_number: Mapped[int] = mapped_column(Integer, nullable=False)
-    node_id: Mapped[Optional[str]] = mapped_column(String(4))
-    node_value_pair_description: Mapped[Optional[str]] = mapped_column(Text)
+    node_id: Mapped[str] = mapped_column(String(4), primary_key=True)
+    question: Mapped[str] = mapped_column(Text, nullable=False)
+    node_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    node_category: Mapped[str] = mapped_column(String(100), nullable=False)
+
+    # Relationship to ThreadNodeValues
+    thread_node_values = relationship("ThreadNodeValues", back_populates="node")
+
+
+class ThreadNodeValues(Base):
+    __tablename__ = 'thread_node_values'
+    __table_args__ = (
+        PrimaryKeyConstraint('thread_id', 'node_id', name='thread_node_values_pkey'),
+        ForeignKeyConstraint(['thread_id'], ['protocol_threads.thread_id'], name='fk_tnv_thread_id'),
+        ForeignKeyConstraint(['node_id'], ['nodes.node_id'], name='fk_tnv_node_id'),
+        Index('idx_tnv_thread_id', 'thread_id'),
+        Index('idx_tnv_node_id', 'node_id')
+    )
+
+    thread_id: Mapped[str] = mapped_column(String(4), primary_key=True)
+    node_id: Mapped[str] = mapped_column(String(4), primary_key=True)
+    node_value: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # Relationships
+    protocol_thread = relationship("ProtocolThreads", back_populates="thread_node_values")
+    node = relationship("Nodes", back_populates="thread_node_values")
+
+
+class ThreadOutcomes(Base):
+    __tablename__ = 'thread_outcomes'
+    __table_args__ = (
+        PrimaryKeyConstraint('thread_id', name='thread_outcomes_pkey'),
+        ForeignKeyConstraint(['thread_id'], ['protocol_threads.thread_id'], name='fk_to_thread_id')
+    )
+
+    thread_id: Mapped[str] = mapped_column(String(4), primary_key=True)
+    triage_outcome: Mapped[Optional[str]] = mapped_column(Text)
+    home_care_advice: Mapped[Optional[str]] = mapped_column(Text)
+    final_condition: Mapped[Optional[str]] = mapped_column(Text)
+    acceptance: Mapped[Optional[bool]] = mapped_column(Boolean)
+    modified_at: Mapped[datetime.datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+    extra: Mapped[Optional[str]] = mapped_column(Text) # The 'extra' column
+
+    # Relationship to ProtocolThreads
+    protocol_thread = relationship("ProtocolThreads", back_populates="thread_outcome")
 
 
 class NodeValuesQuestionsJson(Base):
@@ -182,5 +196,4 @@ class NodeValuesQuestionsJson(Base):
 
     protocol_name_from_file: Mapped[str] = mapped_column(String(255), primary_key=True)
     protocol_id: Mapped[str] = mapped_column(String(4), nullable=False)
-    nvq_data: Mapped[dict] = mapped_column(JSONB, nullable=False)
-    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, server_default=text('CURRENT_TIMESTAMP'))
+    json_data: Mapped[str] = mapped_column(Text, nullable=False) # Assuming this column holds the JSON data

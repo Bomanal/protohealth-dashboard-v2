@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
@@ -13,33 +13,19 @@ class ProtocolNameItem(BaseModel):
     protocol_name: str
     protocol_description: str
 
-    class Config:
-        orm_mode = True
-
 class FinalOutcomeItem(BaseModel):
     thread_id: str
-    final_outcome: str
+    triage_outcome: Optional[str]
+    final_condition: Optional[str]
 
-    class Config:
-        orm_mode = True
-
-class ThreadStepDetail(BaseModel):
-    step_number: int
-    node_id: Optional[str]
-    node_name: Optional[str]
-    node_category: Optional[str]
-    question: Optional[str]
-    value: Optional[str]
-    node_value_pair_description: Optional[str]
-
-class ThreadDetail(BaseModel):
-    thread_id: str
-    protocol_id: str
-    final_outcome: Optional[str]
-    steps: List[ThreadStepDetail]
+class UniqueNodeItem(BaseModel):
+    node_id: str
 
 @router.get("/protocol-names", response_model=List[ProtocolNameItem])
 def get_protocol_names(db: Session = Depends(get_db)):
+    """
+    Get all protocol names from triage_protocols_list table
+    """
     results = (
         db.query(
             models.TriageProtocolsList.protocol_id,
@@ -49,7 +35,6 @@ def get_protocol_names(db: Session = Depends(get_db)):
         .all()
     )
     
-    # Convert tuples to ProtocolNameItem objects
     return [
         ProtocolNameItem(
             protocol_id=result.protocol_id,
@@ -62,99 +47,55 @@ def get_protocol_names(db: Session = Depends(get_db)):
 @router.get("/protocol/{protocol_id}/final-outcomes", response_model=List[FinalOutcomeItem])
 def get_protocol_final_outcomes(protocol_id: str, db: Session = Depends(get_db)):
     """
-    Get all final outcomes from decision threads for a specific protocol
+    Get all final outcomes from thread_outcomes table for a specific protocol
     """
     results = (
         db.query(
-            models.DecisionThreads.thread_id,
-            models.DecisionThreads.final_outcome
+            models.ProtocolThreads.thread_id,
+            models.ThreadOutcomes.triage_outcome,
+            models.ThreadOutcomes.final_condition
         )
-        .filter(models.DecisionThreads.protocol_id == protocol_id)
-        .filter(models.DecisionThreads.final_outcome.isnot(None))  # Only include threads with final outcomes
+        .join(
+            models.ThreadOutcomes,
+            models.ProtocolThreads.thread_id == models.ThreadOutcomes.thread_id
+        )
+        .filter(models.ProtocolThreads.protocol_id == protocol_id)
+        .filter(
+            (models.ThreadOutcomes.triage_outcome.isnot(None)) |
+            (models.ThreadOutcomes.final_condition.isnot(None))
+        )  # Include threads with either triage_outcome or final_condition
         .all()
     )
     
-    # Convert tuples to FinalOutcomeItem objects
     return [
         FinalOutcomeItem(
             thread_id=result.thread_id,
-            final_outcome=result.final_outcome
+            triage_outcome=result.triage_outcome,
+            final_condition=result.final_condition
         )
         for result in results
     ]
 
-@router.get("/threads/details", response_model=List[ThreadDetail])
-def get_threads_details(thread_ids: str, db: Session = Depends(get_db)):
+@router.get("/threads/unique-nodes", response_model=List[UniqueNodeItem])
+def get_unique_nodes_from_threads(thread_ids: str, db: Session = Depends(get_db)):
     """
-    Get comprehensive details for a list of thread IDs including all steps and node information
-    Pass thread_ids as comma-separated string: ?thread_ids=T001,T003,T005
+    Get all unique node IDs from a list of thread IDs using thread_node_values table
     """
     if not thread_ids:
         return []
     
     thread_id_list = thread_ids.split(',')
-    thread_id_list = [tid.strip() for tid in thread_id_list]  # Remove any whitespace
+    thread_id_list = [tid.strip() for tid in thread_id_list]
     
-    # Complex query joining all necessary tables
     query_results = (
-        db.query(
-            models.DecisionThreads.thread_id,
-            models.DecisionThreads.protocol_id,
-            models.DecisionThreads.final_outcome,
-            models.DecisionThreadSteps.step_number,
-            models.DecisionThreadSteps.node_id,
-            models.DecisionThreadSteps.node_value_pair_description,
-            models.NodeValuesQuestions.node_name,
-            models.NodeValuesQuestions.node_category,
-            models.NodeValuesQuestions.question,
-            models.NodeValuesQuestions.value
-        )
-        .join(
-            models.DecisionThreadSteps,
-            models.DecisionThreads.thread_id == models.DecisionThreadSteps.thread_id
-        )
-        .outerjoin(
-            models.NodeValuesQuestions,
-            (models.DecisionThreads.protocol_id == models.NodeValuesQuestions.protocol_id) &
-            (models.DecisionThreadSteps.node_id == models.NodeValuesQuestions.node_id)
-        )
-        .filter(models.DecisionThreads.thread_id.in_(thread_id_list))
-        .order_by(models.DecisionThreads.thread_id, models.DecisionThreadSteps.step_number)
+        db.query(models.ThreadNodeValues.node_id)
+        .filter(models.ThreadNodeValues.thread_id.in_(thread_id_list))
+        .distinct()
+        .order_by(models.ThreadNodeValues.node_id)
         .all()
     )
     
-    # Group results by thread_id
-    threads_dict = {}
-    for row in query_results:
-        thread_id = row.thread_id
-        
-        if thread_id not in threads_dict:
-            threads_dict[thread_id] = {
-                'thread_id': thread_id,
-                'protocol_id': row.protocol_id,
-                'final_outcome': row.final_outcome,
-                'steps': []
-            }
-        
-        # Add step details
-        step_detail = ThreadStepDetail(
-            step_number=row.step_number,
-            node_id=row.node_id,
-            node_name=row.node_name,
-            node_category=row.node_category,
-            question=row.question,
-            value=row.value,
-            node_value_pair_description=row.node_value_pair_description
-        )
-        
-        threads_dict[thread_id]['steps'].append(step_detail)
-    
-    # Convert to list of ThreadDetail objects, maintaining order of input thread_ids
-    result = []
-    for thread_id in thread_id_list:
-        if thread_id in threads_dict:
-            thread_data = threads_dict[thread_id]
-            result.append(ThreadDetail(**thread_data))
-    
-    return result
-
+    return [
+        UniqueNodeItem(node_id=result[0])
+        for result in query_results
+    ]

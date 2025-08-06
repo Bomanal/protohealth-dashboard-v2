@@ -12,7 +12,9 @@ import {
   Clock,
   Heart,
   Stethoscope,
-  ArrowRight
+  ArrowRight,
+  Link,
+  BarChart3
 } from "lucide-react"
 
 export function DashboardOverview() {
@@ -237,6 +239,17 @@ export function DashboardOverview() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Visualize Protocol Link */}
+      <Link to="/visualize-protocol" className="block">
+        <div className="border rounded-lg p-6 shadow hover:shadow-lg transition bg-white flex items-center gap-4">
+          <BarChart3 className="h-8 w-8 text-primary" />
+          <div>
+            <div className="font-semibold text-lg">Visualize Protocol</div>
+            <div className="text-sm text-muted-foreground">Explore and edit protocol data matrix</div>
+          </div>
+        </div>
+      </Link>
     </div>
   )
 }

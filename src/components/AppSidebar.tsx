@@ -8,9 +8,10 @@ import {
   AlertTriangle, 
   Eye,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  BarChart3
 } from "lucide-react"
-import { NavLink, useLocation } from "react-router-dom"
+import { NavLink, useLocation, Link } from "react-router-dom"
 
 import {
   Sidebar,
@@ -31,6 +32,8 @@ const manageProtocolsItems = [
   { title: "Inbound Scheduling", url: "/inbound-scheduling", icon: Calendar, comingSoon: true },
   { title: "Inbound Patient Intake", url: "/inbound-intake", icon: UserPlus, comingSoon: true },
   { title: "Outbound Communications", url: "/outbound-agents", icon: Send },
+  { title: "Create Protocol", url: "/create-protocol", icon: Bot },
+  { title: "Visualize Protocol", url: "/visualize-protocol", icon: BarChart3 },
 ]
 
 const patientInteractionsItems = [

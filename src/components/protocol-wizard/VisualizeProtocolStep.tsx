@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { ProtocolData } from "../CreateProtocolWizard"
-import { ArrowLeft, ArrowRight, BarChart3, ChevronDown, Loader2 } from "lucide-react"
+import { ArrowLeft, ArrowRight, BarChart3, ChevronDown, Loader2, Save } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useProtocols } from "@/hooks/useProtocols"
 import { useFinalOutcomes } from "@/hooks/useFinalOutcomes"
@@ -38,6 +38,9 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
   const [tableData, setTableData] = useTableState<ProtocolTableData | null>(null);
   const [loadingTableData, setLoadingTableData] = useTableState(false);
   const [acceptanceStatus, setAcceptanceStatus] = useState<{ [thread_id: string]: boolean }>({});
+  const [pendingNodeChanges, setPendingNodeChanges] = useState<{[key: string]: string}>({});
+  const [pendingAcceptanceChanges, setPendingAcceptanceChanges] = useState<{[thread_id: string]: boolean}>({});
+  const [isSaving, setIsSaving] = useState(false);
 
   useTableEffect(() => {
     if (selectedProtocolId) {
@@ -45,39 +48,27 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
     }
   }, [selectedProtocolId]);
 
-  const updateCellValue = async (threadId: string, nodeId: string, newValue: string) => {
-    if (!selectedProtocolId || !tableData) return;
-
-    try {
-      const response = await fetch(`http://127.0.0.1:8000/protocol/${selectedProtocolId}/update-thread-node`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          thread_id: threadId,
-          node_id: nodeId,
-          node_value: newValue
-        })
-      });
-
-      if (response.ok) {
-        // Update local state
-        setTableData(prev => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            threads: prev.threads.map(thread => 
-              thread.thread_id === threadId 
-                ? { ...thread, values: { ...thread.values, [nodeId]: newValue } }
-                : thread
-            )
-          };
-        });
-      }
-    } catch (error) {
-      console.error('Error updating cell:', error);
-    }
+  const updateCellValue = (threadId: string, nodeId: string, newValue: string) => {
+    const key = `${threadId}-${nodeId}`;
+    
+    // Update local state immediately
+    setTableData(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        threads: prev.threads.map(thread => 
+          thread.thread_id === threadId 
+            ? { ...thread, values: { ...thread.values, [nodeId]: newValue } }
+            : thread
+        )
+      };
+    });
+    
+    // Track the change as pending - INCLUDING EMPTY STRINGS
+    setPendingNodeChanges(prev => ({
+      ...prev,
+      [key]: newValue  // This should include "" (empty string)
+    }));
   };
 
   const fetchTableData = async (protocolId: string) => {
@@ -109,10 +100,66 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
   };
 
   const toggleAcceptance = (threadId: string) => {
+    const newAcceptanceValue = !acceptanceStatus[threadId];
+    
+    // Update local state immediately
     setAcceptanceStatus(prev => ({
       ...prev,
-      [threadId]: !prev[threadId]
+      [threadId]: newAcceptanceValue
     }));
+    
+    // Track the change as pending
+    setPendingAcceptanceChanges(prev => ({
+      ...prev,
+      [threadId]: newAcceptanceValue
+    }));
+  };
+
+  const saveAllChanges = async () => {
+    if (!selectedProtocolId) return;
+    
+    setIsSaving(true);
+    
+    try {
+      // Prepare node updates
+      const nodeUpdates = Object.entries(pendingNodeChanges).map(([key, value]) => {
+        const [thread_id, node_id] = key.split('-');
+        return { thread_id, node_id, node_value: value }; // This should include empty strings
+      });
+      
+      // Prepare acceptance updates
+      const acceptanceUpdates = Object.entries(pendingAcceptanceChanges).map(([thread_id, acceptance]) => ({
+        thread_id,
+        acceptance
+      }));
+      
+      // Send batch update
+      const response = await fetch(`http://127.0.0.1:8000/protocol/${selectedProtocolId}/batch-update`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          node_updates: nodeUpdates,
+          acceptance_updates: acceptanceUpdates
+        })
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('All changes saved:', result);
+        
+        // Clear pending changes
+        setPendingNodeChanges({});
+        setPendingAcceptanceChanges({});
+      } else {
+        console.error('Failed to save changes');
+      }
+    } catch (error) {
+      console.error('Error saving changes:', error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleProtocolChange = (protocolId: string) => {  // ✅ Receive protocol_id
@@ -125,6 +172,14 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
       // fetchFinalOutcomes(protocolId) // Removed as per edit hint
     }
   }
+
+  const hasUnsavedChanges = () => {
+    return Object.keys(pendingNodeChanges).length > 0 || Object.keys(pendingAcceptanceChanges).length > 0;
+  };
+
+  const getTotalPendingChanges = () => {
+    return Object.keys(pendingNodeChanges).length + Object.keys(pendingAcceptanceChanges).length;
+  };
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -241,25 +296,10 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
                                   <Input
                                     value={thread.values[nodeId] || ''}
                                     onChange={(e) => {
-                                      // Update local state immediately for responsiveness
-                                      setTableData(prev => {
-                                        if (!prev) return prev;
-                                        return {
-                                          ...prev,
-                                          threads: prev.threads.map(t => 
-                                            t.thread_id === thread.thread_id 
-                                              ? { ...t, values: { ...t.values, [nodeId]: e.target.value } }
-                                              : t
-                                          )
-                                        };
-                                      });
-                                    }}
-                                    onBlur={(e) => {
-                                      // Save to backend on blur
                                       updateCellValue(thread.thread_id, nodeId, e.target.value);
                                     }}
                                     placeholder="No value"
-                                    className="text-xs h-8"
+                                    className={`text-xs h-8 ${pendingNodeChanges[`${thread.thread_id}-${nodeId}`] !== undefined ? 'border-orange-300 bg-orange-50' : ''}`}
                                   />
                                 </TableCell>
                               ))}
@@ -268,7 +308,7 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
                                   variant={acceptanceStatus[thread.thread_id] ? "default" : "destructive"}
                                   size="sm"
                                   onClick={() => toggleAcceptance(thread.thread_id)}
-                                  className="w-full text-xs h-8"
+                                  className={`w-full text-xs h-8 ${pendingAcceptanceChanges[thread.thread_id] !== undefined ? 'border-2 border-orange-400' : ''}`}
                                 >
                                   {acceptanceStatus[thread.thread_id] ? "Accept" : "Reject"}
                                 </Button>
@@ -280,7 +320,52 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
                     </div>
                   </div>
                   
-                  {/* Removed active filters section */}
+                  {hasUnsavedChanges() && (
+                    <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                      <div className="flex justify-between items-center">
+                        <div className="text-sm text-orange-800">
+                          <strong>{getTotalPendingChanges()} unsaved changes</strong>
+                          <p className="text-xs text-orange-600 mt-1">
+                            Changes are highlighted in orange. Click "Save All Changes" to persist them to the database.
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setPendingNodeChanges({});
+                              setPendingAcceptanceChanges({});
+                              // Refresh table data to revert changes
+                              if (selectedProtocolId) {
+                                fetchTableData(selectedProtocolId);
+                              }
+                            }}
+                            disabled={isSaving}
+                          >
+                            Discard Changes
+                          </Button>
+                          <Button
+                            onClick={saveAllChanges}
+                            disabled={isSaving}
+                            className="flex items-center gap-2"
+                          >
+                            {isSaving ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Saving...
+                              </>
+                            ) : (
+                              <>
+                                <Save className="h-4 w-4" />
+                                Save All Changes
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>

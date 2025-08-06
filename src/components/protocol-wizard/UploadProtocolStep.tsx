@@ -2,7 +2,8 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ProtocolData } from "../CreateProtocolWizard"
-import { ArrowLeft, ArrowRight, Upload, FileText } from "lucide-react"
+import { ArrowLeft, ArrowRight, Upload, FileText, Loader2 } from "lucide-react"
+import { useProtocolEngine } from "@/hooks/useProtocolEngine"
 
 interface UploadProtocolStepProps {
   data: ProtocolData
@@ -13,6 +14,7 @@ interface UploadProtocolStepProps {
 
 export function UploadProtocolStep({ data, onUpdate, onNext, onBack }: UploadProtocolStepProps) {
   const [dragActive, setDragActive] = useState(false)
+  const { uploadProtocolData, loading, error } = useProtocolEngine()
 
   const handleFileUpload = (file: File) => {
     onUpdate({ uploadedFile: file, uploadMethod: 'file' })
@@ -42,14 +44,27 @@ export function UploadProtocolStep({ data, onUpdate, onNext, onBack }: UploadPro
   }
 
   const isValidFileType = (file: File) => {
-    const validTypes = ['application/pdf', 'image/png', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
-    return validTypes.includes(file.type)
+    // Only allow .txt files for now as per API requirements
+    return file.name.endsWith('.txt') || file.type === 'text/plain'
   }
 
-  const handleNext = () => {
-    if (data.uploadedFile) {
-      onUpdate({ uploadMethod: 'file' })
-      onNext()
+  const handleNext = async () => {
+    if (data.uploadedFile && data.protocol_internal_id) {
+      try {
+        // Upload protocol data via API
+        const response = await uploadProtocolData(data.protocol_internal_id, data.uploadedFile)
+        
+        // Update protocol data with task_id
+        onUpdate({ 
+          uploadMethod: 'file',
+          task_id: response.task_id
+        })
+        
+        onNext()
+      } catch (err) {
+        console.error('Failed to upload protocol data:', err)
+        // Error is handled by the hook
+      }
     }
   }
 
@@ -71,7 +86,7 @@ export function UploadProtocolStep({ data, onUpdate, onNext, onBack }: UploadPro
                   <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <h3 className="text-lg font-semibold mb-2">Upload New Protocol</h3>
                   <p className="text-muted-foreground mb-4">
-                    Upload a protocol document (PDF, PNG, or DOCX)
+                    Upload a protocol document (TXT files only)
                   </p>
 
                   <div className="space-y-4">
@@ -97,7 +112,7 @@ export function UploadProtocolStep({ data, onUpdate, onNext, onBack }: UploadPro
                           <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
                           <p>Drag and drop your file here, or click to browse</p>
                           <p className="text-sm text-muted-foreground mt-1">
-                            Supports PDF, PNG, DOCX
+                            Supports TXT files only
                           </p>
                         </div>
                       )}
@@ -107,7 +122,7 @@ export function UploadProtocolStep({ data, onUpdate, onNext, onBack }: UploadPro
                       type="file"
                       id="file-upload"
                       className="hidden"
-                      accept=".pdf,.png,.docx"
+                      accept=".txt"
                       onChange={(e) => {
                         const file = e.target.files?.[0]
                         if (file && isValidFileType(file)) {
@@ -129,18 +144,35 @@ export function UploadProtocolStep({ data, onUpdate, onNext, onBack }: UploadPro
             </Card>
           </div>
 
-          <div className="flex justify-between pt-4">
-            <Button variant="outline" onClick={onBack}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-            <Button 
-              onClick={handleNext}
-              disabled={!data.uploadedFile}
-            >
-              Continue to Visualization
-              <ArrowRight className="h-4 w-4 ml-2" />
-            </Button>
+          <div className="space-y-4">
+            {error && (
+              <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+                <p className="text-sm text-destructive">{error}</p>
+              </div>
+            )}
+            
+            <div className="flex justify-between pt-4">
+              <Button variant="outline" onClick={onBack} disabled={loading}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
+              </Button>
+              <Button 
+                onClick={handleNext}
+                disabled={!data.uploadedFile || loading}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    Continue to Visualization
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>

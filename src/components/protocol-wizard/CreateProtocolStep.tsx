@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ProtocolData } from "../CreateProtocolWizard"
-import { ArrowRight, FileText } from "lucide-react"
+import { ArrowRight, FileText, Loader2 } from "lucide-react"
+import { useProtocolEngine } from "@/hooks/useProtocolEngine"
 
 interface CreateProtocolStepProps {
   data: ProtocolData
@@ -16,18 +17,41 @@ interface CreateProtocolStepProps {
 
 export function CreateProtocolStep({ data, onUpdate, onNext }: CreateProtocolStepProps) {
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const { createProtocol, loading, error } = useProtocolEngine()
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
     const newErrors: Record<string, string> = {}
     
     if (!data.name.trim()) newErrors.name = "Protocol name is required"
+    if (!data.entryPoint.trim()) newErrors.entryPoint = "Entry point is required"
     
     setErrors(newErrors)
     
     if (Object.keys(newErrors).length === 0) {
-      onNext()
+      try {
+        // Generate protocol_internal_id from name and entry point
+        const protocolInternalId = `${data.name.toLowerCase().replace(/\s+/g, '_')}_${data.entryPoint.toLowerCase().replace(/\s+/g, '_')}`
+        
+        // Create protocol via API
+        const response = await createProtocol({
+          protocol_internal_id: protocolInternalId,
+          protocol_name: data.name,
+          protocol_description: data.description
+        })
+        
+        // Update protocol data with API response
+        onUpdate({
+          protocol_id: response.protocol_id,
+          protocol_internal_id: response.protocol_internal_id
+        })
+        
+        onNext()
+      } catch (err) {
+        console.error('Failed to create protocol:', err)
+        // Error is handled by the hook
+      }
     }
   }
 
@@ -110,11 +134,26 @@ export function CreateProtocolStep({ data, onUpdate, onNext }: CreateProtocolSte
               </p>
             </div>
 
-            <div className="flex justify-end pt-4">
-              <Button type="submit">
-                Continue to Upload
-                <ArrowRight className="h-4 w-4 ml-2" />
+            <div className="space-y-4">
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Creating Protocol...
+                  </>
+                ) : (
+                  <>
+                    Continue to Upload
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </>
+                )}
               </Button>
+              
+              {error && (
+                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+                  <p className="text-sm text-destructive">{error}</p>
+                </div>
+              )}
             </div>
           </form>
         </CardContent>

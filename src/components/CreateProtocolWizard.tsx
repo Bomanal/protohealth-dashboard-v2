@@ -16,6 +16,10 @@ export interface ProtocolData {
   entryPoint: string
   uploadMethod?: 'file' | 'call-data'
   uploadedFile?: File
+  // API response fields
+  protocol_id?: string
+  protocol_internal_id?: string
+  task_id?: string
 }
 
 const STEPS = [

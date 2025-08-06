@@ -43,7 +43,7 @@ export default function AllEngagements() {
   const [selectedStatus, setSelectedStatus] = useState("all")
 
   useEffect(() => {
-    fetch("http://localhost:8000/case-list") // Use your actual API URL
+            fetch("/case-list") // Use your actual API URL
       .then((res) => res.json())
       .then((data) => {
         setCases(data)

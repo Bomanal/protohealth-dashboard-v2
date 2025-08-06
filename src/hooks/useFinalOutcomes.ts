@@ -20,7 +20,7 @@ export function useFinalOutcomes() {
     setError(null);
     
     try {
-      const response = await fetch(`http://127.0.0.1:8000/protocol/${protocolId}/final-outcomes`);
+              const response = await fetch(`/protocol/${protocolId}/final-outcomes`);
       if (!response.ok) {
         throw new Error('Failed to fetch final outcomes');
       }

@@ -11,75 +11,71 @@ from src.models import TriageProtocolsList
 logger = logging.getLogger(__name__)
 
 @celery_app.task(bind=True)
-def parse_protocol(self, protocol_id: str, uploaded_file_content: str) -> Dict[str, Any]:
+def parse_protocol(self, protocol_internal_id: str, uploaded_file_content: str) -> Dict[str, Any]:
     """
     Simple task to parse a protocol using ProtocolParser
     
     Args:
-        protocol_id: ID of the TriageProtocolsList to process
+        protocol_internal_id: Internal ID of the TriageProtocolsList to process
         uploaded_file_content: Content of the uploaded protocol file
         
     Returns:
         Dictionary with parsing results
     """
+    db_session = SessionLocal()
+    
     try:
-        db_session = SessionLocal()
+        logger.info(f"Starting protocol parsing task for {protocol_internal_id}")
+        # Get the protocol from database
+        protocol = db_session.query(TriageProtocolsList).filter_by(
+            protocol_internal_id=protocol_internal_id
+        ).first()
+        logger.info(f"Protocol found: {protocol}")
         
-        try:
-            # Get the protocol from database
-            protocol = db_session.query(TriageProtocolsList).filter_by(
-                protocol_id=protocol_id
-            ).first()
-            
-            if not protocol:
-                logger.error(f"Protocol with ID {protocol_id} not found")
-                return {
-                    "success": False, 
-                    "message": f"Protocol with ID {protocol_id} not found",
-                    "protocol_id": protocol_id
-                }
-            
-            # Store task_id in the protocol's extra field
-            task_id = self.request.id
-            if protocol.extra is None:
-                protocol.extra = {}
-            protocol.extra['celery_task_id'] = task_id
-            protocol.extra['processing_started_at'] = 'now'
-            protocol.status = 'PROCESSING'
-            db_session.commit()
-            
-            logger.info(f"Started processing protocol {protocol_id} with task_id {task_id}")
-            
-            # Create parser and run parse method
-            parser = ProtocolParser(protocol, uploaded_file_content)
-            result = parser.parse()
-            
-            # Update protocol with final status and result
-            if result.get('success', False):
-                protocol.status = 'COMPLETED'
-                protocol.extra['processing_completed_at'] = 'now'
-                protocol.extra['processing_result'] = result
-            else:
-                protocol.status = 'FAILED'
-                protocol.extra['processing_completed_at'] = 'now'
-                protocol.extra['processing_error'] = result.get('message', 'Unknown error')
-            
-            db_session.commit()
-            
-            logger.info(f"Protocol parsing completed for {protocol_id}: {result.get('success', False)}")
-            return result
-            
-        finally:
-            db_session.close()
+        if not protocol:
+            logger.error(f"Protocol with ID {protocol_internal_id} not found")
+            return {
+                "success": False, 
+                "message": f"Protocol with ID {protocol_internal_id} not found",
+                "protocol_id": protocol_internal_id
+            }
+        
+        # Set status to PROCESSING first and commit
+        task_id = self.request.id
+        logger.info(f"Task ID: {task_id}")
+        if protocol.extra is None:
+            protocol.extra = {}
+        protocol.extra['celery_task_id'] = task_id
+        protocol.extra['processing_started_at'] = 'now'
+        protocol.status = 'PROCESSING'
+        db_session.commit()
+        logger.info(f"Protocol status updated to PROCESSING")
+        logger.info(f"Started processing protocol {protocol_internal_id} with task_id {task_id}")
+
+        logger.info(f"Creating parser with the same session and running parse method")
+        # Create parser with the same session and run parse method
+        parser = ProtocolParser(protocol, uploaded_file_content, db_session)
+        result = parser.parse()
+        logger.info(f"Parser result: {result}")
+        # Update protocol with final status and result
+        if result.get('success', False):
+            protocol.status = 'COMPLETED'
+            protocol.extra['processing_completed_at'] = 'now'
+            protocol.extra['processing_result'] = result
+        else:
+            protocol.status = 'FAILED'
+            protocol.extra['processing_completed_at'] = 'now'
+            protocol.extra['processing_error'] = result.get('message', 'Unknown error')
+        
+        db_session.commit()
+        
+        logger.info(f"Protocol parsing completed for {protocol_internal_id}: {result.get('success', False)}")
+        return result
         
     except Exception as exc:
         # Update protocol status to FAILED on exception
         try:
-            db_session = SessionLocal()
-            protocol = db_session.query(TriageProtocolsList).filter_by(
-                protocol_id=protocol_id
-            ).first()
-            if protocol:
+            if 'protocol' in locals():
                 protocol.status = 'FAILED'
                 if protocol.extra is None:
                     protocol.extra = {}
@@ -88,16 +84,15 @@ def parse_protocol(self, protocol_id: str, uploaded_file_content: str) -> Dict[s
                 db_session.commit()
         except Exception as update_error:
             logger.error(f"Failed to update protocol status: {update_error}")
-        finally:
-            if 'db_session' in locals():
-                db_session.close()
         
-        logger.error(f"Protocol parsing task failed for {protocol_id}: {str(exc)}")
+        logger.error(f"Protocol parsing task failed for {protocol_internal_id}: {str(exc)}")
         return {
             "success": False,
             "message": str(exc),
-            "protocol_id": protocol_id
+            "protocol_id": protocol_internal_id
         }
+    finally:
+        db_session.close()
 
 @celery_app.task
 def get_protocol_task_status_by_protocol_id(protocol_id: str) -> Dict[str, Any]:

@@ -16,9 +16,10 @@ from database import get_db
 load_dotenv(".env.local")
 
 class ProtocolParser:
-    def __init__(self, protocol: TriageProtocolsList, uploaded_file_content: str):
+    def __init__(self, protocol: TriageProtocolsList, uploaded_file_content: str, db_session: Session):
         self.protocol = protocol
         self.uploaded_file_content = uploaded_file_content
+        self.db_session = db_session
         
         # Initialize Gemini API
         api_key = os.getenv("GOOGLE_API_KEY")
@@ -33,46 +34,28 @@ class ProtocolParser:
         """
         Main method to parse the protocol and save to database
         """
-        db_session = next(get_db())
-        
         try:
-            # Check if protocol already exists
-            existing = db_session.query(TriageProtocolsList).filter_by(
-                protocol_name=self.protocol.protocol_name
-            ).first()
-            
-            if existing:
-                print(f"❌ Protocol '{self.protocol.protocol_name}' already exists with ID {existing.protocol_id}")
-                return {"success": False, "message": "Protocol already exists"}
-            
-            print(f"🚀 Processing protocol: {self.protocol.protocol_name}")
-            print("=" * 60)
-            
             # Step 1: Create main protocol entry
-            protocol_id = self._create_protocol_entry(db_session)
+            protocol_id = self._create_protocol_entry()
             
             # Step 2: Extract and save nodes
-            nvq_data, node_mapping = self._extract_and_save_nodes(
-                db_session, protocol_id
-            )
+            nvq_data, node_mapping = self._extract_and_save_nodes(protocol_id)
             
             if not nvq_data:
                 print("❌ Failed to extract nodes. Aborting.")
-                db_session.rollback()
+                self.db_session.rollback()
                 return {"success": False, "message": "Failed to extract nodes"}
             
             # Step 3: Extract thread outcomes
-            outcomes_data = self._extract_thread_outcomes(db_session, protocol_id)
+            outcomes_data = self._extract_thread_outcomes(protocol_id)
             
             if not outcomes_data:
                 print("❌ Failed to extract thread outcomes. Aborting.")
-                db_session.rollback()
+                self.db_session.rollback()
                 return {"success": False, "message": "Failed to extract thread outcomes"}
             
             # Step 4: Create protocol threads
-            self._create_protocol_threads(
-                db_session, protocol_id, nvq_data, outcomes_data, node_mapping
-            )
+            self._create_protocol_threads(protocol_id, nvq_data, outcomes_data, node_mapping)
             
             print("=" * 60)
             print(f"🎉 Successfully processed protocol '{self.protocol.protocol_name}' (ID: {protocol_id})")
@@ -86,13 +69,11 @@ class ProtocolParser:
                 "nodes_count": len(node_mapping),
                 "outcomes_count": len(outcomes_data)
             }
-            
+                
         except Exception as e:
             print(f"❌ Error processing protocol '{self.protocol.protocol_name}': {e}")
-            db_session.rollback()
+            self.db_session.rollback()
             return {"success": False, "message": str(e)}
-        finally:
-            db_session.close()
     
     def _call_llm(self, prompt_parts):
         """Handles the LLM API request and returns the model's text response."""
@@ -111,37 +92,37 @@ class ProtocolParser:
             print(f"Error calling LLM: {e}")
             return None
     
-    def _get_next_protocol_id(self, session: Session):
+    def _get_next_protocol_id(self):
         """Get the next available protocol ID from database"""
-        result = session.execute(text("SELECT MAX(CAST(SUBSTRING(protocol_id, 2) AS INTEGER)) FROM triage_protocols_list"))
+        result = self.db_session.execute(text("SELECT MAX(CAST(SUBSTRING(protocol_id, 2) AS INTEGER)) FROM triage_protocols_list"))
         max_id = result.scalar()
         return f"P{(max_id or 0) + 1:03d}"
     
-    def _get_next_node_id(self, session: Session):
+    def _get_next_node_id(self):
         """Get the next available node ID from database"""
-        result = session.execute(text("SELECT MAX(CAST(SUBSTRING(node_id, 2) AS INTEGER)) FROM nodes"))
+        result = self.db_session.execute(text("SELECT MAX(CAST(SUBSTRING(node_id, 2) AS INTEGER)) FROM nodes"))
         max_id = result.scalar()
         return f"N{(max_id or 0) + 1:03d}"
     
-    def _get_next_thread_id(self, session: Session):
+    def _get_next_thread_id(self):
         """Get the next available thread ID from database"""
-        result = session.execute(text("SELECT MAX(CAST(SUBSTRING(thread_id, 2) AS INTEGER)) FROM protocol_threads"))
+        result = self.db_session.execute(text("SELECT MAX(CAST(SUBSTRING(thread_id, 2) AS INTEGER)) FROM protocol_threads"))
         max_id = result.scalar()
         return f"T{(max_id or 0) + 1:03d}"
     
-    def _get_or_create_node_id(self, session: Session, node_name: str, node_mapping: dict, node_data: dict):
+    def _get_or_create_node_id(self, node_name: str, node_mapping: dict, node_data: dict):
         """Get existing node ID or create new one for a node name"""
         if node_name in node_mapping:
             return node_mapping[node_name]
         
         # Check if node already exists in database
-        existing = session.query(Nodes).filter_by(node_name=node_name).first()
+        existing = self.db_session.query(Nodes).filter_by(node_name=node_name).first()
         if existing:
             node_mapping[node_name] = existing.node_id
             return existing.node_id
         
         # Create new node ID and Node record
-        new_node_id = self._get_next_node_id(session)
+        new_node_id = self._get_next_node_id()
         node_mapping[node_name] = new_node_id
         
         # Create the Node record in the nodes table
@@ -151,16 +132,13 @@ class ProtocolParser:
             node_name=node_name,
             node_category=node_data.get('node_category', '')
         )
-        session.add(node)
-        session.flush()  # Ensure node exists before it's referenced
+        self.db_session.add(node)
+        self.db_session.flush()  # Ensure node exists before it's referenced
         
         return new_node_id
     
-    def _create_protocol_entry(self, session: Session):
+    def _create_protocol_entry(self):
         """Create the main protocol entry with generated description"""
-        # Generate protocol ID
-        protocol_id = self._get_next_protocol_id(session)
-        
         # Generate description using LLM
         desc_prompt = f"""
         Generate a comprehensive description for this clinical protocol in maximum 100 words.
@@ -173,24 +151,22 @@ class ProtocolParser:
         Output only the description text, no quotes or formatting.
         """
         
-        print(f"Creating protocol {protocol_id} - {self.protocol.protocol_name}...")
         description = self._call_llm([desc_prompt])
         
         if not description:
             description = f"Clinical protocol for {self.protocol.protocol_name.replace('_', ' ').lower()}"
         
-        # Update the existing protocol object with ID and description
-        self.protocol.protocol_id = protocol_id
+        # Update the existing protocol object with description
         self.protocol.protocol_description = description.strip()
         
         # Add to session and commit
-        session.add(self.protocol)
-        session.commit()
+        self.db_session.add(self.protocol)
+        self.db_session.commit()
         
-        print(f"✅ Created protocol entry: {protocol_id}")
-        return protocol_id
+        print(f"✅ Created protocol entry: {self.protocol.protocol_id}")
+        return self.protocol.protocol_id
     
-    def _extract_and_save_nodes(self, session: Session, protocol_id: str):
+    def _extract_and_save_nodes(self, protocol_id: str):
         """Extract Node-Values-Questions and save to new normalized schema"""
         prompt = f"""
         You are a General Physician and a clinical informatics expert. Analyze the provided clinical guidance document to extract:
@@ -248,7 +224,7 @@ class ProtocolParser:
             # Process each node - create Node records in nodes table
             for node_data in nvq_data:
                 node_name = node_data.get('node_name', '')
-                node_id = self._get_or_create_node_id(session, node_name, node_mapping, node_data)
+                node_id = self._get_or_create_node_id(node_name, node_mapping, node_data)
             
             # Save the JSON version for reference
             nvq_json = NodeValuesQuestionsJson(
@@ -256,18 +232,18 @@ class ProtocolParser:
                 protocol_id=protocol_id,
                 json_data=json.dumps(nvq_data)  # Convert to JSON string
             )
-            session.add(nvq_json)
+            self.db_session.add(nvq_json)
             
-            session.commit()
+            self.db_session.commit()
             print(f"✅ Created {len(nvq_data)} nodes")
             return nvq_data, node_mapping
             
         except json.JSONDecodeError as e:
             print(f"❌ Error parsing Node-Values-Questions JSON: {e}")
-            session.rollback()
+            self.db_session.rollback()
             return [], {}
     
-    def _extract_thread_outcomes(self, session: Session, protocol_id: str):
+    def _extract_thread_outcomes(self, protocol_id: str):
         """Extract medical conditions/outcomes from the protocol"""
         prompt = f"""
         Analyze this clinical protocol and extract medical conditions with their triage decisions and home care advice.
@@ -301,11 +277,11 @@ class ProtocolParser:
             print(f"❌ Error parsing thread outcomes JSON: {e}")
             return []
     
-    def _create_protocol_threads(self, session: Session, protocol_id: str, nvq_data: list, outcomes_data: list, node_mapping: dict):
+    def _create_protocol_threads(self, protocol_id: str, nvq_data: list, outcomes_data: list, node_mapping: dict):
         """Create protocol threads using the new normalized schema"""
         
         # Get the current max thread ID once at the beginning
-        result = session.execute(text("SELECT MAX(CAST(SUBSTRING(thread_id, 2) AS INTEGER)) FROM protocol_threads"))
+        result = self.db_session.execute(text("SELECT MAX(CAST(SUBSTRING(thread_id, 2) AS INTEGER)) FROM protocol_threads"))
         max_thread_id = result.scalar() or 0
         thread_counter = max_thread_id
         
@@ -380,8 +356,8 @@ class ProtocolParser:
                     thread_id=thread_id,
                     protocol_id=protocol_id
                 )
-                session.add(protocol_thread)
-                session.flush()  # Ensure thread exists before adding related records
+                self.db_session.add(protocol_thread)
+                self.db_session.flush()  # Ensure thread exists before adding related records
                 
                 # Create thread outcome record
                 thread_outcome = ThreadOutcomes(
@@ -390,7 +366,7 @@ class ProtocolParser:
                     home_care_advice=thread_data.get('home_care_advice'),
                     final_condition=thread_data.get('final_condition')
                 )
-                session.add(thread_outcome)
+                self.db_session.add(thread_outcome)
                 
                 # Create thread node values (the steps)
                 steps = thread_data.get('steps', [])
@@ -410,17 +386,17 @@ class ProtocolParser:
                         node_id=node_id,
                         node_value=selected_value
                     )
-                    session.add(thread_node_value)
+                    self.db_session.add(thread_node_value)
                 
                 created_threads += 1
                 print(f"  ✅ Created thread {thread_id} for '{thread_data.get('final_condition')}' with {len(steps)} steps")
             
-            session.commit()
+            self.db_session.commit()
             print(f"🎉 Successfully created {created_threads} protocol threads")
             
         except json.JSONDecodeError as e:
             print(f"❌ Error parsing protocol threads JSON: {e}")
-            session.rollback()
+            self.db_session.rollback()
         except Exception as e:
             print(f"❌ Error creating protocol threads: {e}")
-            session.rollback()
+            self.db_session.rollback()

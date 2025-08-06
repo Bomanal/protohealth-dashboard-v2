@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from dotenv import load_dotenv
-from src.api import case_list,case_details,create_protocol
+from src.api import case_list,case_details,create_protocol, edit_protocol
 # Load environment variables
 load_dotenv(".env.local")
 
@@ -19,3 +19,4 @@ app.add_middleware(
 app.include_router(case_details.router)
 app.include_router(case_list.router)
 app.include_router(create_protocol.router)
+app.include_router(edit_protocol.router)

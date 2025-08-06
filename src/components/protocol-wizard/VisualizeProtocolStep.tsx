@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { ProtocolData } from "../CreateProtocolWizard"
-import { ArrowLeft, ArrowRight, Filter, BarChart3, RefreshCw, ChevronDown, Loader2 } from "lucide-react"
+import { ArrowLeft, ArrowRight, BarChart3, ChevronDown, Loader2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useProtocols } from "@/hooks/useProtocols"
 import { useFinalOutcomes } from "@/hooks/useFinalOutcomes"
@@ -30,22 +30,11 @@ interface ProtocolTableData {
   }>;
 }
 
-const mockSymptoms = ["Chest Pain", "Shortness of Breath", "Dizziness", "Palpitations", "Fatigue"]
-const mockEndpoints = ["Emergency Referral", "Cardiology Consult", "GP Follow-up", "Self-Care", "Pharmacy Referral"]
-
 export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtocolStepProps) {
   const { protocols, loading, error } = useProtocols();
-  const { finalOutcomes, loading: loadingOutcomes, fetchFinalOutcomes } = useFinalOutcomes();
-  
-  const [filters, setFilters] = useState({
-    diagnoses: [] as string[],
-    endpoints: [] as string[]
-  })
-  const [selectedThreadIds, setSelectedThreadIds] = useState<string[]>([])
   const [selectedProtocol, setSelectedProtocol] = useState<string>(data.name || "Current Protocol")
   const [selectedProtocolId, setSelectedProtocolId] = useState<string | null>(null)
   const [showProtocolSelector, setShowProtocolSelector] = useState(false)
-
   const [tableData, setTableData] = useTableState<ProtocolTableData | null>(null);
   const [loadingTableData, setLoadingTableData] = useTableState(false);
   const [acceptanceStatus, setAcceptanceStatus] = useState<{ [thread_id: string]: boolean }>({});
@@ -126,71 +115,14 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
     }));
   };
 
-  const handleFilterChange = (type: keyof typeof filters, value: string) => {
-    if (type === 'diagnoses') {
-      // Handle final outcomes and their thread IDs
-      const outcome = finalOutcomes.find(o => o.final_outcome === value)
-      if (outcome) {
-        const isAlreadySelected = filters.diagnoses.includes(value)
-        
-        if (isAlreadySelected) {
-          // Remove outcome and its thread ID
-          setFilters(prev => ({
-            ...prev,
-            diagnoses: prev.diagnoses.filter(item => item !== value)
-          }))
-          setSelectedThreadIds(prev => prev.filter(id => id !== outcome.thread_id))
-        } else {
-          // Add outcome and its thread ID
-          setFilters(prev => ({
-            ...prev,
-            diagnoses: [...prev.diagnoses, value]
-          }))
-          setSelectedThreadIds(prev => [...prev, outcome.thread_id])
-        }
-      }
-    } else {
-      // Handle other filter types (endpoints) normally
-      setFilters(prev => ({
-        ...prev,
-        [type]: prev[type].includes(value) 
-          ? prev[type].filter(item => item !== value)
-          : [...prev[type], value]
-      }))
-    }
-  }
-
-  const clearFilters = () => {
-    setFilters({ diagnoses: [], endpoints: [] })
-    setSelectedThreadIds([])
-  }
-
   const handleProtocolChange = (protocolId: string) => {  // ✅ Receive protocol_id
     const selectedProtocolData = protocols.find(p => p.protocol_id === protocolId)
     if (selectedProtocolData) {
       setSelectedProtocol(selectedProtocolData.protocol_name)  // ✅ Set display name
       setSelectedProtocolId(protocolId)  // ✅ Set the ID for API calls
       setShowProtocolSelector(false)
-      clearFilters()
-      fetchFinalOutcomes(protocolId)  // ✅ Use the actual protocol_id
-    }
-  }
-
-  const hasActiveFilters = Object.values(filters).some(arr => arr.length > 0)
-
-  const fetchThreadDetails = async () => {
-    if (selectedThreadIds.length === 0) return
-    
-    try {
-      const response = await fetch(`http://127.0.0.1:8000/threads/details?thread_ids=${selectedThreadIds.join(',')}`)
-      if (!response.ok) {
-        throw new Error('Failed to fetch thread details')
-      }
-      const data = await response.json()
-      console.log('Thread details:', data) // You can handle this data as needed
-      return data
-    } catch (err) {
-      console.error('Error fetching thread details:', err)
+      // clearFilters() // Removed as per edit hint
+      // fetchFinalOutcomes(protocolId) // Removed as per edit hint
     }
   }
 
@@ -238,96 +170,6 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
           )}
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Filter Controls */}
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <Filter className="h-4 w-4" />
-                  Filter Protocol Graph
-                </h3>
-                {hasActiveFilters && (
-                  <Button variant="outline" size="sm" onClick={clearFilters}>
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Clear Filters
-                  </Button>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-                {/* Final Outcomes Filter */}
-                <div className="space-y-2">
-                  <Label>Filter by Final Outcome</Label>
-                  <Select 
-                    onValueChange={(value) => handleFilterChange('diagnoses', value)} 
-                    disabled={loadingOutcomes || !selectedProtocolId}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={
-                        !selectedProtocolId 
-                          ? "Select a protocol first..." 
-                          : loadingOutcomes 
-                            ? "Loading outcomes..." 
-                            : "Select final outcomes..."
-                      } />
-                      {loadingOutcomes && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
-                    </SelectTrigger>
-                    <SelectContent>
-                      {finalOutcomes.map((outcome) => (
-                        <SelectItem key={outcome.thread_id} value={outcome.final_outcome}>
-                          {outcome.final_outcome}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <div className="flex flex-wrap gap-1">
-                    {filters.diagnoses.map((diagnosis) => (
-                      <Badge key={diagnosis} variant="secondary" className="text-xs">
-                        {diagnosis}
-                        <button
-                          className="ml-1 text-muted-foreground hover:text-foreground"
-                          onClick={() => handleFilterChange('diagnoses', diagnosis)}
-                        >
-                          ×
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Endpoint Filter */}
-                <div className="space-y-2">
-                  <Label>Filter by Triage Outcome</Label>
-                  <Select onValueChange={(value) => handleFilterChange('endpoints', value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select triage outcomes..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {mockEndpoints.map((endpoint) => (
-                        <SelectItem key={endpoint} value={endpoint}>{endpoint}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <div className="flex flex-wrap gap-1">
-                    {filters.endpoints.map((endpoint) => (
-                      <Badge key={endpoint} variant="secondary" className="text-xs">
-                        {endpoint}
-                        <button
-                          className="ml-1 text-muted-foreground hover:text-foreground"
-                          onClick={() => handleFilterChange('endpoints', endpoint)}
-                        >
-                          ×
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Protocol Data Table */}
           <Card>
             <CardContent className="p-6">
@@ -438,16 +280,7 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
                     </div>
                   </div>
                   
-                  {hasActiveFilters && (
-                    <div className="mt-4 p-3 bg-muted/30 rounded-lg">
-                      <p className="text-sm text-muted-foreground mb-2">Active filters:</p>
-                      <div className="flex flex-wrap gap-2">
-                        {[...filters.diagnoses, ...filters.endpoints].map((filter) => (
-                          <Badge key={filter} variant="outline" className="text-xs">{filter}</Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                  {/* Removed active filters section */}
                 </div>
               )}
             </CardContent>

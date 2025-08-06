@@ -9,6 +9,7 @@ class Base(DeclarativeBase):
     pass
 
 
+
 class Conversations(Base):
     __tablename__ = 'conversations'
     __table_args__ = (
@@ -105,6 +106,10 @@ class TriageProtocolsList(Base):
     protocol_id: Mapped[str] = mapped_column(String(4), primary_key=True)
     protocol_name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     protocol_description: Mapped[str] = mapped_column(Text, nullable=False)
+    protocol_internal_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default='CREATED')
+    extra: Mapped[Optional[dict]] = mapped_column(JSONB)
+
 
     # Add this relationship
     protocol_threads = relationship("ProtocolThreads", back_populates="protocol")

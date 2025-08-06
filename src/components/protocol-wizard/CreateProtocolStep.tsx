@@ -23,9 +23,6 @@ export function CreateProtocolStep({ data, onUpdate, onNext }: CreateProtocolSte
     const newErrors: Record<string, string> = {}
     
     if (!data.name.trim()) newErrors.name = "Protocol name is required"
-    if (!data.description.trim()) newErrors.description = "Description is required"
-    if (!data.specialty.trim()) newErrors.specialty = "Specialty is required"
-    if (!data.entryPoint.trim()) newErrors.entryPoint = "Entry point is required"
     
     setErrors(newErrors)
     
@@ -60,7 +57,7 @@ export function CreateProtocolStep({ data, onUpdate, onNext }: CreateProtocolSte
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">Description *</Label>
+              <Label htmlFor="description">Description</Label>
               <Textarea
                 id="description"
                 value={data.description}
@@ -75,7 +72,7 @@ export function CreateProtocolStep({ data, onUpdate, onNext }: CreateProtocolSte
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="specialty">Medical Specialty *</Label>
+              <Label htmlFor="specialty">Medical Specialty</Label>
               <Select value={data.specialty} onValueChange={(value) => onUpdate({ specialty: value })}>
                 <SelectTrigger className={errors.specialty ? "border-destructive" : ""}>
                   <SelectValue placeholder="Select medical specialty" />
@@ -97,7 +94,7 @@ export function CreateProtocolStep({ data, onUpdate, onNext }: CreateProtocolSte
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="entryPoint">Entry Point *</Label>
+              <Label htmlFor="entryPoint">Entry Point</Label>
               <Input
                 id="entryPoint"
                 value={data.entryPoint}

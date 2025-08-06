@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { DashboardLayout } from "@/components/DashboardLayout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -24,16 +24,43 @@ import {
   AlertTriangle
 } from "lucide-react"
 
+type CaseListItem = {
+  call_id: string;
+  phone_number: string;
+  user_name: string | null;
+  last_call: string | null;
+  status: string | null;
+  preliminary_diagnosis: string | null;
+  triage_outcome: string | null;
+};
+
 export default function AllEngagements() {
   const navigate = useNavigate()
+  const [cases, setCases] = useState<CaseListItem[]>([])
+  const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedDepartment, setSelectedDepartment] = useState("all")
   const [selectedStatus, setSelectedStatus] = useState("all")
 
-  const filteredInteractions = mockPatientInteractions.filter(interaction => {
-    const matchesSearch = interaction.patientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         interaction.sourceDetail?.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesDepartment = selectedDepartment === "all" || interaction.department === selectedDepartment
+  useEffect(() => {
+    fetch("http://localhost:8000/case-list") // Use your actual API URL
+      .then((res) => res.json())
+      .then((data) => {
+        setCases(data)
+        setLoading(false)
+      })
+      .catch((err) => {
+        console.error("Failed to fetch case list:", err)
+        setLoading(false)
+      })
+  }, [])
+
+  const filteredInteractions = (cases.length > 0 ? cases : mockPatientInteractions).filter(interaction => {
+    const name = "patientName" in interaction ? interaction.patientName : ""
+    const sourceDetail = "sourceDetail" in interaction ? interaction.sourceDetail : ""
+    const matchesSearch = name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         (sourceDetail?.toLowerCase().includes(searchQuery.toLowerCase()))
+    const matchesDepartment = selectedDepartment === "all" || ("department" in interaction && interaction.department === selectedDepartment)
     const matchesStatus = selectedStatus === "all" || interaction.status === selectedStatus
     return matchesSearch && matchesDepartment && matchesStatus
   })
@@ -62,8 +89,9 @@ export default function AllEngagements() {
     }
   }
 
-  const formatDateTime = (timestamp: Date) => {
-    return timestamp.toLocaleDateString("en-US", { 
+  const formatDateTime = (timestamp: Date | string) => {
+    const dateObj = typeof timestamp === "string" ? new Date(timestamp) : timestamp
+    return dateObj.toLocaleDateString("en-US", { 
       month: "short", 
       day: "numeric", 
       hour: "2-digit", 
@@ -71,10 +99,10 @@ export default function AllEngagements() {
     })
   }
 
-  const totalEngagements = mockPatientInteractions.length
-  const engagedCount = mockPatientInteractions.filter(i => i.status === "engaged").length
-  const needsActionCount = mockPatientInteractions.filter(i => i.status === "needs_action").length
-  const inQueueCount = mockPatientInteractions.filter(i => i.status === "in_queue").length
+  const totalEngagements = (cases.length > 0 ? cases : mockPatientInteractions).length
+  const engagedCount = (cases.length > 0 ? cases : mockPatientInteractions).filter(i => i.status === "engaged").length
+  const needsActionCount = (cases.length > 0 ? cases : mockPatientInteractions).filter(i => i.status === "needs_action").length
+  const inQueueCount = (cases.length > 0 ? cases : mockPatientInteractions).filter(i => i.status === "in_queue").length
 
   return (
     <DashboardLayout>
@@ -254,37 +282,50 @@ export default function AllEngagements() {
             ) : (
             <div className="space-y-4">
               {filteredInteractions.map((interaction) => {
+                // Safe property access for both API and mock data
+                const patientName = "user_name" in interaction ? (interaction.user_name || "John Smith") : ("patientName" in interaction ? interaction.patientName : "John Smith")
+                const dateOfBirth = "dateOfBirth" in interaction ? interaction.dateOfBirth : "1985-03-15"
+                const callNumber = "call_id" in interaction ? interaction.call_id : ("callNumber" in interaction ? interaction.callNumber : "N/A")
+                const phoneNumber = "phone_number" in interaction ? interaction.phone_number : ("phoneNumber" in interaction ? interaction.phoneNumber : "N/A")
+                const preliminaryDiagnosis = "preliminary_diagnosis" in interaction ? interaction.preliminary_diagnosis : ("preliminaryDiagnosis" in interaction ? interaction.preliminaryDiagnosis : "N/A")
+                const triageOutcome = "triage_outcome" in interaction ? interaction.triage_outcome : ("triageOutcome" in interaction ? interaction.triageOutcome : "N/A")
+                const timestamp = "timestamp" in interaction ? interaction.timestamp : ("last_call" in interaction ? interaction.last_call : "N/A")
+                const sourceDetail = "sourceDetail" in interaction ? interaction.sourceDetail : ""
+                const department = "department" in interaction ? interaction.department : "N/A"
+                // Status is always present
+                const status = interaction.status
+
                 const getChannelSubdisposition = () => {
-                  if (interaction.source === "outbound_flow") {
-                    return interaction.sourceDetail || "Outbound Flow"
+                  if ("source" in interaction && interaction.source === "outbound_flow") {
+                    return sourceDetail || "Outbound Flow"
                   }
-                  return interaction.source.replace("_", " ")
+                  return "source" in interaction ? interaction.source.replace("_", " ") : ""
                 }
 
                 const getStatusForDisplay = () => {
-                  if (interaction.source === "outbound_flow") {
-                    switch (interaction.status) {
+                  if ("source" in interaction && interaction.source === "outbound_flow") {
+                    switch (status) {
                       case "needs_action": return "Needs action"
                       case "engaged": return "Completed"
                       case "message_sent": return "No contact"
                       case "in_queue": return "In queue"
-                      default: return interaction.status
+                      default: return status
                     }
                   } else {
                     // Inbound
-                    switch (interaction.status) {
+                    switch (status) {
                       case "needs_action": return "Needs action"
                       case "engaged": return "Completed"
                       case "scheduled": return "Completed"
                       case "in_queue": return "Abandoned"
-                      default: return interaction.status
+                      default: return status
                     }
                   }
                 }
 
                 const getStatusBadgeVariant = () => {
-                  const status = getStatusForDisplay()
-                  switch (status.toLowerCase()) {
+                  const statusDisplay = getStatusForDisplay()
+                  switch (statusDisplay.toLowerCase()) {
                     case "completed": return "default"
                     case "needs action": return "destructive"
                     case "no contact": return "secondary"
@@ -295,12 +336,12 @@ export default function AllEngagements() {
                 }
 
                 const shouldShowTriageOutcome = () => {
-                  const status = getStatusForDisplay().toLowerCase()
-                  return status === "completed" || status === "needs action"
+                  const statusDisplay = getStatusForDisplay().toLowerCase()
+                  return statusDisplay === "completed" || statusDisplay === "needs action"
                 }
 
                 return (
-                  <Card key={interaction.id} className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-primary/20 hover:border-l-primary">
+                  <Card key={callNumber} className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-primary/20 hover:border-l-primary">
                     <CardContent className="p-6">
                       <div className="flex items-start justify-between gap-6">
                         <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -308,10 +349,10 @@ export default function AllEngagements() {
                           <div className="space-y-3">
                             <div>
                               <h4 className="font-semibold text-lg text-foreground mb-1">
-                                {interaction.patientName}
+                                {patientName}
                               </h4>
-                              <p className="text-sm text-muted-foreground">DOB: {interaction.dateOfBirth}</p>
-                              <p className="text-sm text-muted-foreground">Call #{interaction.callNumber}</p>
+                              <p className="text-sm text-muted-foreground">DOB: {dateOfBirth}</p>
+                              <p className="text-sm text-muted-foreground">Call #{callNumber}</p>
                             </div>
                           </div>
 
@@ -321,7 +362,7 @@ export default function AllEngagements() {
                               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
                                 Date & Channel
                               </p>
-                              <p className="text-sm font-medium">{formatDateTime(interaction.timestamp)}</p>
+                              <p className="text-sm font-medium">{timestamp !== "N/A" ? formatDateTime(timestamp) : "N/A"}</p>
                               <p className="text-sm text-muted-foreground">{getChannelSubdisposition()}</p>
                             </div>
                           </div>
@@ -336,7 +377,7 @@ export default function AllEngagements() {
                                 {getStatusForDisplay()}
                               </Badge>
                               <p className="text-sm text-muted-foreground">
-                                {interaction.preliminaryDiagnosis || "No diagnosis"}
+                                {preliminaryDiagnosis || "No diagnosis"}
                               </p>
                             </div>
                           </div>
@@ -348,7 +389,7 @@ export default function AllEngagements() {
                                 Triage Outcome
                               </p>
                               <p className="text-sm font-medium">
-                                {shouldShowTriageOutcome() ? (interaction.triageOutcome || "Pending") : "—"}
+                                {triageOutcome || "Pending"}
                               </p>
                             </div>
                           </div>
@@ -359,7 +400,7 @@ export default function AllEngagements() {
                           <Button 
                             variant="outline"
                             size="sm"
-                            onClick={() => navigate(`/patient-interaction/${interaction.id}`)}
+                            onClick={() => navigate(`/patient-interaction/${callNumber}`)}
                             className="hover:bg-primary hover:text-primary-foreground transition-colors"
                           >
                             View Details

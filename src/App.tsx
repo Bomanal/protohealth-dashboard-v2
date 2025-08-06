@@ -36,7 +36,7 @@ const App = () => (
           <Route path="/inbound-triage" element={<InboundTriage />} />
           <Route path="/inbound-scheduling" element={<InboundScheduling />} />
           <Route path="/inbound-intake" element={<InboundIntake />} />
-          <Route path="/patient-interaction/:interactionId" element={<PatientInteractionDetails />} />
+          <Route path="/patient-interaction/:id" element={<PatientInteractionDetails />} />
           <Route path="/create-triage-protocol" element={<CreateTriageProtocol />} />
           <Route path="/create-protocol" element={<CreateProtocol />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

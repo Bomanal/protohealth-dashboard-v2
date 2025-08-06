@@ -22,6 +22,7 @@ export function CreateProtocolStep({ data, onUpdate, onNext }: CreateProtocolSte
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
+    // Remove all validation - make fields optional
     const newErrors: Record<string, string> = {}
     
     if (!data.name.trim()) newErrors.name = "Protocol name is required"
@@ -67,7 +68,7 @@ export function CreateProtocolStep({ data, onUpdate, onNext }: CreateProtocolSte
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="name">Protocol Name *</Label>
+              <Label htmlFor="name">Protocol Name</Label>
               <Input
                 id="name"
                 value={data.name}

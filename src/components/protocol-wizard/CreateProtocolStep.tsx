@@ -20,18 +20,13 @@ export function CreateProtocolStep({ data, onUpdate, onNext }: CreateProtocolSte
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     
+    // Remove all validation - make fields optional
     const newErrors: Record<string, string> = {}
-    
-    if (!data.name.trim()) newErrors.name = "Protocol name is required"
-    if (!data.description.trim()) newErrors.description = "Description is required"
-    if (!data.specialty.trim()) newErrors.specialty = "Specialty is required"
-    if (!data.entryPoint.trim()) newErrors.entryPoint = "Entry point is required"
     
     setErrors(newErrors)
     
-    if (Object.keys(newErrors).length === 0) {
-      onNext()
-    }
+    // Always proceed to next step since all fields are optional
+    onNext()
   }
 
   return (
@@ -46,7 +41,7 @@ export function CreateProtocolStep({ data, onUpdate, onNext }: CreateProtocolSte
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="name">Protocol Name *</Label>
+              <Label htmlFor="name">Protocol Name</Label>
               <Input
                 id="name"
                 value={data.name}
@@ -60,7 +55,7 @@ export function CreateProtocolStep({ data, onUpdate, onNext }: CreateProtocolSte
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">Description *</Label>
+              <Label htmlFor="description">Description</Label>
               <Textarea
                 id="description"
                 value={data.description}
@@ -75,7 +70,7 @@ export function CreateProtocolStep({ data, onUpdate, onNext }: CreateProtocolSte
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="specialty">Medical Specialty *</Label>
+              <Label htmlFor="specialty">Medical Specialty</Label>
               <Select value={data.specialty} onValueChange={(value) => onUpdate({ specialty: value })}>
                 <SelectTrigger className={errors.specialty ? "border-destructive" : ""}>
                   <SelectValue placeholder="Select medical specialty" />
@@ -97,7 +92,7 @@ export function CreateProtocolStep({ data, onUpdate, onNext }: CreateProtocolSte
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="entryPoint">Entry Point *</Label>
+              <Label htmlFor="entryPoint">Entry Point</Label>
               <Input
                 id="entryPoint"
                 value={data.entryPoint}

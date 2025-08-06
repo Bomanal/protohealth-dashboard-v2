@@ -4,13 +4,13 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { ProtocolData } from "../CreateProtocolWizard"
-import { ArrowLeft, ArrowRight, BarChart3, ChevronDown, Loader2, Save } from "lucide-react"
+import { ArrowLeft, ArrowRight, BarChart3, Loader2, Maximize2, Minimize2, Save } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useProtocols } from "@/hooks/useProtocols"
 import { useFinalOutcomes } from "@/hooks/useFinalOutcomes"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
-import { useState as useTableState, useEffect as useTableEffect } from "react"
+import { useState as useTableState, useEffect } from "react"
 
 interface VisualizeProtocolStepProps {
   data: ProtocolData
@@ -34,19 +34,30 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
   const { protocols, loading, error } = useProtocols();
   const [selectedProtocol, setSelectedProtocol] = useState<string>(data.name || "Current Protocol")
   const [selectedProtocolId, setSelectedProtocolId] = useState<string | null>(null)
-  const [showProtocolSelector, setShowProtocolSelector] = useState(false)
   const [tableData, setTableData] = useTableState<ProtocolTableData | null>(null);
   const [loadingTableData, setLoadingTableData] = useTableState(false);
   const [acceptanceStatus, setAcceptanceStatus] = useState<{ [thread_id: string]: boolean }>({});
   const [pendingNodeChanges, setPendingNodeChanges] = useState<{[key: string]: string}>({});
   const [pendingAcceptanceChanges, setPendingAcceptanceChanges] = useState<{[thread_id: string]: boolean}>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
-  useTableEffect(() => {
+  useEffect(() => {
     if (selectedProtocolId) {
       fetchTableData(selectedProtocolId);
     }
   }, [selectedProtocolId]);
+
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullscreen) {
+        setIsFullscreen(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isFullscreen]);
 
   const updateCellValue = (threadId: string, nodeId: string, newValue: string) => {
     const key = `${threadId}-${nodeId}`;
@@ -167,7 +178,6 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
     if (selectedProtocolData) {
       setSelectedProtocol(selectedProtocolData.protocol_name)  // ✅ Set display name
       setSelectedProtocolId(protocolId)  // ✅ Set the ID for API calls
-      setShowProtocolSelector(false)
       // clearFilters() // Removed as per edit hint
       // fetchFinalOutcomes(protocolId) // Removed as per edit hint
     }
@@ -183,29 +193,23 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
 
   return (
     <div className="max-w-6xl mx-auto">
-      <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
+      {isFullscreen && (
+        <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setIsFullscreen(false)} />
+      )}
+
+      <Card className={isFullscreen ? "fixed inset-4 z-50 rounded-lg shadow-2xl" : "border-border/50 bg-card/80 backdrop-blur-sm"}>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5 text-primary" />
-              Visualize your {selectedProtocol} protocol
+              Protocol Data Visualization
             </div>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => setShowProtocolSelector(!showProtocolSelector)}
-              className="flex items-center gap-2"
-              disabled={loading}
-            >
-              Change protocol
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronDown className="h-4 w-4" />}
-            </Button>
-          </CardTitle>
-          {showProtocolSelector && (
-            <div className="mt-4">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="protocol-select" className="text-sm font-medium">Protocol:</Label>
               <Select value={selectedProtocolId || ""} onValueChange={handleProtocolChange} disabled={loading}>
-                <SelectTrigger className="w-64">
+                <SelectTrigger className="w-64" id="protocol-select">
                   <SelectValue placeholder={loading ? "Loading protocols..." : "Select a protocol"} />
+                  {loading && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
                 </SelectTrigger>
                 <SelectContent>
                   {error ? (
@@ -214,20 +218,20 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
                     </div>
                   ) : (
                     protocols.map((protocol) => (
-                      <SelectItem key={protocol.protocol_id} value={protocol.protocol_id}>  {/* ✅ Pass protocol_id as value */}
-                        {protocol.protocol_name}  {/* ✅ Show protocol_name to user */}
+                      <SelectItem key={protocol.protocol_id} value={protocol.protocol_id}>
+                        {protocol.protocol_name}
                       </SelectItem>
                     ))
                   )}
                 </SelectContent>
               </Select>
             </div>
-          )}
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Protocol Data Table */}
-          <Card>
-            <CardContent className="p-6">
+          <Card className={isFullscreen ? "fixed inset-0 z-50 rounded-none" : ""}>
+            <CardContent className={isFullscreen ? "p-6 h-full flex flex-col" : "p-6"}>
               {loadingTableData ? (
                 <div className="h-96 flex items-center justify-center">
                   <div className="text-center">
@@ -247,30 +251,50 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
                   </div>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className={isFullscreen ? "flex flex-col h-full space-y-4" : "space-y-4"}>
                   <div className="flex justify-between items-center">
                     <h3 className="text-lg font-semibold">Protocol Data Matrix</h3>
-                    <div className="text-sm text-muted-foreground">
-                      {tableData.threads.length} threads × {Object.keys(tableData.questions).length} questions
+                    <div className="flex items-center gap-4">
+                      <div className="text-sm text-muted-foreground">
+                        {tableData.threads.length} threads × {Object.keys(tableData.questions).length} questions
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsFullscreen(!isFullscreen)}
+                        className="flex items-center gap-2"
+                      >
+                        {isFullscreen ? (
+                          <>
+                            <Minimize2 className="h-4 w-4" />
+                            Exit Fullscreen
+                          </>
+                        ) : (
+                          <>
+                            <Maximize2 className="h-4 w-4" />
+                            Fullscreen
+                          </>
+                        )}
+                      </Button>
                     </div>
                   </div>
                   
-                  <div className="border rounded-lg overflow-hidden">
-                    <div className="overflow-x-auto max-h-96">
+                  <div className={`border rounded-lg overflow-hidden ${isFullscreen ? "flex-1" : ""}`}>
+                    <div className={`overflow-auto ${isFullscreen ? "h-full" : "h-96"}`}>
                       <Table>
-                        <TableHeader className="bg-muted/50">
+                        <TableHeader className="bg-muted/50 sticky top-0 z-10">
                           <TableRow>
-                            <TableHead className="sticky left-0 bg-muted/50 border-r-2 border-border min-w-64 max-w-64">
+                            <TableHead className="sticky left-0 bg-muted/50 border-r-2 border-border min-w-72 max-w-72 z-20">
                               <div className="font-semibold">Final Condition</div>
                               <div className="text-xs text-muted-foreground font-normal">Thread ID</div>
                             </TableHead>
                             {Object.entries(tableData.questions).map(([nodeId, question]) => (
-                              <TableHead key={nodeId} className="min-w-48 max-w-48">
+                              <TableHead key={nodeId} className="min-w-56 max-w-56 bg-muted/50">
                                 <div className="text-xs break-words">{question}</div>
                                 <div className="text-xs text-muted-foreground font-normal mt-1">({nodeId})</div>
                               </TableHead>
                             ))}
-                            <TableHead className="min-w-32 max-w-32">
+                            <TableHead className="min-w-36 max-w-36 bg-muted/50">
                               <div className="font-semibold text-center">Accept/Reject</div>
                             </TableHead>
                           </TableRow>
@@ -292,23 +316,23 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
                                 </div>
                               </TableCell>
                               {Object.keys(tableData.questions).map((nodeId) => (
-                                <TableCell key={nodeId} className="min-w-48 max-w-48 p-2">
+                                <TableCell key={nodeId} className="min-w-56 max-w-56 p-3">
                                   <Input
                                     value={thread.values[nodeId] || ''}
                                     onChange={(e) => {
                                       updateCellValue(thread.thread_id, nodeId, e.target.value);
                                     }}
                                     placeholder="No value"
-                                    className={`text-xs h-8 ${pendingNodeChanges[`${thread.thread_id}-${nodeId}`] !== undefined ? 'border-orange-300 bg-orange-50' : ''}`}
+                                    className={`text-sm h-12 ${pendingNodeChanges[`${thread.thread_id}-${nodeId}`] !== undefined ? 'border-orange-300 bg-orange-50' : ''}`}
                                   />
                                 </TableCell>
                               ))}
-                              <TableCell className="min-w-32 max-w-32 p-2">
+                              <TableCell className="min-w-36 max-w-36 p-3">
                                 <Button
                                   variant={acceptanceStatus[thread.thread_id] ? "default" : "destructive"}
                                   size="sm"
                                   onClick={() => toggleAcceptance(thread.thread_id)}
-                                  className={`w-full text-xs h-8 ${pendingAcceptanceChanges[thread.thread_id] !== undefined ? 'border-2 border-orange-400' : ''}`}
+                                  className={`w-full text-sm h-12 ${pendingAcceptanceChanges[thread.thread_id] !== undefined ? 'border-2 border-orange-400' : ''}`}
                                 >
                                   {acceptanceStatus[thread.thread_id] ? "Accept" : "Reject"}
                                 </Button>

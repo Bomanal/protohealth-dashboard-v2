@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
+
 interface VisualizeProtocolStepProps {
   data: ProtocolData
   onNext: () => void
@@ -207,6 +208,7 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
       )}
 
       <Card className={isFullscreen ? "fixed inset-4 z-50 rounded-lg shadow-2xl" : "border-border/50 bg-card/80 backdrop-blur-sm"}>
+
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -396,11 +398,13 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
                             )}
                           </Button>
                         </div>
+
                       </div>
                     </div>
                   )}
                 </div>
               )}
+
             </CardContent>
           </Card>
 
@@ -412,6 +416,7 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
             <Button onClick={handleReviewAndSave}>
               <Check className="h-4 w-4 mr-2" />
               Review and Save
+
             </Button>
           </div>
         </CardContent>
@@ -441,6 +446,7 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
           </div>
         </DialogContent>
       </Dialog>
+
     </div>
   )
 }

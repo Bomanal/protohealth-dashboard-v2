@@ -5,6 +5,7 @@ import { ProtocolData } from "../CreateProtocolWizard"
 import { ArrowLeft, ArrowRight, Upload, FileText, Loader2 } from "lucide-react"
 import { useProtocolEngine } from "@/hooks/useProtocolEngine"
 
+
 interface UploadProtocolStepProps {
   data: ProtocolData
   onUpdate: (updates: Partial<ProtocolData>) => void
@@ -15,6 +16,7 @@ interface UploadProtocolStepProps {
 export function UploadProtocolStep({ data, onUpdate, onNext, onBack }: UploadProtocolStepProps) {
   const [dragActive, setDragActive] = useState(false)
   const { uploadProtocolData, loading, error } = useProtocolEngine()
+
 
   const handleFileUpload = (file: File) => {
     onUpdate({ uploadedFile: file, uploadMethod: 'file' })
@@ -65,6 +67,7 @@ export function UploadProtocolStep({ data, onUpdate, onNext, onBack }: UploadPro
         console.error('Failed to upload protocol data:', err)
         // Error is handled by the hook
       }
+
     }
   }
 
@@ -81,6 +84,7 @@ export function UploadProtocolStep({ data, onUpdate, onNext, onBack }: UploadPro
           <div className="max-w-2xl mx-auto">
             {/* File Upload Option */}
             <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
+
               <CardContent className="p-6">
                 <div className="text-center">
                   <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -139,6 +143,7 @@ export function UploadProtocolStep({ data, onUpdate, onNext, onBack }: UploadPro
                       Choose File
                     </Button>
                   </div>
+
                 </div>
               </CardContent>
             </Card>

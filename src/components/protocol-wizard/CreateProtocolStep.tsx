@@ -9,6 +9,7 @@ import { ProtocolData } from "../CreateProtocolWizard"
 import { ArrowRight, FileText, Loader2 } from "lucide-react"
 import { useProtocolEngine } from "@/hooks/useProtocolEngine"
 
+
 interface CreateProtocolStepProps {
   data: ProtocolData
   onUpdate: (updates: Partial<ProtocolData>) => void
@@ -26,6 +27,7 @@ export function CreateProtocolStep({ data, onUpdate, onNext }: CreateProtocolSte
     const newErrors: Record<string, string> = {}
     
     if (!data.name.trim()) newErrors.name = "Protocol name is required"
+
     if (!data.entryPoint.trim()) newErrors.entryPoint = "Entry point is required"
     
     setErrors(newErrors)
@@ -53,6 +55,7 @@ export function CreateProtocolStep({ data, onUpdate, onNext }: CreateProtocolSte
         console.error('Failed to create protocol:', err)
         // Error is handled by the hook
       }
+
     }
   }
 
@@ -69,6 +72,7 @@ export function CreateProtocolStep({ data, onUpdate, onNext }: CreateProtocolSte
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="name">Protocol Name</Label>
+
               <Input
                 id="name"
                 value={data.name}
@@ -83,6 +87,7 @@ export function CreateProtocolStep({ data, onUpdate, onNext }: CreateProtocolSte
 
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
+
               <Textarea
                 id="description"
                 value={data.description}
@@ -98,6 +103,7 @@ export function CreateProtocolStep({ data, onUpdate, onNext }: CreateProtocolSte
 
             <div className="space-y-2">
               <Label htmlFor="specialty">Medical Specialty</Label>
+
               <Select value={data.specialty} onValueChange={(value) => onUpdate({ specialty: value })}>
                 <SelectTrigger className={errors.specialty ? "border-destructive" : ""}>
                   <SelectValue placeholder="Select medical specialty" />
@@ -120,6 +126,7 @@ export function CreateProtocolStep({ data, onUpdate, onNext }: CreateProtocolSte
 
             <div className="space-y-2">
               <Label htmlFor="entryPoint">Entry Point</Label>
+
               <Input
                 id="entryPoint"
                 value={data.entryPoint}
@@ -155,6 +162,7 @@ export function CreateProtocolStep({ data, onUpdate, onNext }: CreateProtocolSte
                   <p className="text-sm text-destructive">{error}</p>
                 </div>
               )}
+
             </div>
           </form>
         </CardContent>

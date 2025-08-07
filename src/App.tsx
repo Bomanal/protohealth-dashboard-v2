@@ -41,6 +41,7 @@ const App = () => (
           <Route path="/create-triage-protocol" element={<CreateTriageProtocol />} />
           <Route path="/create-protocol" element={<CreateProtocol />} />
           <Route path="/visualize-protocol" element={<VisualizeProtocolPage />} />
+
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

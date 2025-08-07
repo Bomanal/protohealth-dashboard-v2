@@ -5,9 +5,13 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, ArrowRight, Check } from "lucide-react"
+
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { CreateProtocolStep } from "./protocol-wizard/CreateProtocolStep"
 import { UploadProtocolStep } from "./protocol-wizard/UploadProtocolStep"
 import { VisualizeProtocolStep } from "./protocol-wizard/VisualizeProtocolStep"
+import { ReviewSimulationsStep } from "./protocol-wizard/ReviewSimulationsStep"
+import { RunSimulationsStep } from "./protocol-wizard/RunSimulationsStep"
 
 export interface ProtocolData {
   name: string
@@ -20,6 +24,7 @@ export interface ProtocolData {
   protocol_id?: string
   protocol_internal_id?: string
   task_id?: string
+
 }
 
 const STEPS = [
@@ -44,6 +49,7 @@ export function CreateProtocolWizard() {
 
   const handleNext = () => {
     if (currentStep < ACTIVE_STEPS) {
+
       setCurrentStep(currentStep + 1)
     }
   }
@@ -55,6 +61,7 @@ export function CreateProtocolWizard() {
   }
 
   const handleComplete = () => {
+
     // Save as completed protocol
     navigate('/inbound-triage')
   }
@@ -69,6 +76,7 @@ export function CreateProtocolWizard() {
   }
 
   const progress = (currentStep / ACTIVE_STEPS) * 100
+
 
   const renderStep = () => {
     switch (currentStep) {
@@ -94,6 +102,7 @@ export function CreateProtocolWizard() {
           <VisualizeProtocolStep
             data={protocolData}
             onNext={handleComplete}
+
             onBack={handleBack}
           />
         )
@@ -120,6 +129,7 @@ export function CreateProtocolWizard() {
               </h1>
               <p className="text-sm text-muted-foreground">
                 Step {currentStep} of {ACTIVE_STEPS}: {STEPS[currentStep - 1]?.title}
+
               </p>
             </div>
             </div>
@@ -166,6 +176,7 @@ export function CreateProtocolWizard() {
                   </div>
                 )
               })}
+
             </div>
           </div>
         </div>

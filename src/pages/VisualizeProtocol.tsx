@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ProtocolData } from "../CreateProtocolWizard"
 import { ArrowLeft, Check, BarChart3, Loader2, Maximize2, Minimize2, Save } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useProtocols } from "@/hooks/useProtocols"
@@ -10,13 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-
-
-interface VisualizeProtocolStepProps {
-  data: ProtocolData
-  onNext: () => void
-  onBack: () => void
-}
+import { useNavigate } from "react-router-dom";
 
 interface ProtocolTableData {
   protocol_id: string;
@@ -30,10 +23,10 @@ interface ProtocolTableData {
   }>;
 }
 
-export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtocolStepProps) {
+export default function VisualizeProtocolPage() {
   const { protocols, loading, error } = useProtocols();
-  const [selectedProtocol, setSelectedProtocol] = useState<string>(data.name || "Current Protocol")
-  const [selectedProtocolId, setSelectedProtocolId] = useState<string | null>(null)
+  const [selectedProtocol, setSelectedProtocol] = useState<string>(protocols.length > 0 ? protocols[0].protocol_name : "Current Protocol")
+  const [selectedProtocolId, setSelectedProtocolId] = useState<string | null>(protocols.length > 0 ? protocols[0].protocol_id : null)
   const [tableData, setTableData] = useState<ProtocolTableData | null>(null);
   const [loadingTableData, setLoadingTableData] = useState(false);
   const [acceptanceStatus, setAcceptanceStatus] = useState<{ [thread_id: string]: boolean }>({});
@@ -42,6 +35,8 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
   const [isSaving, setIsSaving] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (selectedProtocolId) {
@@ -198,7 +193,9 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
 
   const confirmSave = () => {
     setShowConfirmDialog(false);
-    onNext();
+    // The original wizard flow had onNext, which was removed.
+    // For a standalone page, you might want to navigate back or show a success message.
+    // For now, we'll just close the dialog.
   };
 
   return (
@@ -208,7 +205,6 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
       )}
 
       <Card className={isFullscreen ? "fixed inset-4 z-50 rounded-lg shadow-2xl" : "border-border/50 bg-card/80 backdrop-blur-sm"}>
-
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -398,25 +394,22 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
                             )}
                           </Button>
                         </div>
-
                       </div>
                     </div>
                   )}
                 </div>
               )}
-
             </CardContent>
           </Card>
 
           <div className="flex justify-between pt-4">
-            <Button variant="outline" onClick={onBack}>
+            <Button variant="outline" onClick={() => navigate(-1)}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back
             </Button>
             <Button onClick={handleReviewAndSave}>
               <Check className="h-4 w-4 mr-2" />
               Review and Save
-
             </Button>
           </div>
         </CardContent>
@@ -428,7 +421,7 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
           <DialogHeader>
             <DialogTitle>Review and Save Protocol</DialogTitle>
             <DialogDescription>
-              Are you sure you want to save "{data.name}" protocol? This will create a new protocol that can be used for patient triage.
+              Are you sure you want to save "{selectedProtocol}" protocol? This will create a new protocol that can be used for patient triage.
               <br /><br />
               <span className="text-sm text-muted-foreground">
                 Note: Steps 4 and 5 (Review Simulations and Run Simulations) will be available in a future update.
@@ -446,7 +439,6 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
           </div>
         </DialogContent>
       </Dialog>
-
     </div>
   )
 }

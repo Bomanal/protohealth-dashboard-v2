@@ -29,3 +29,5 @@ __pycache__/
 venv/
 # Ignore environment files
 .env.local
+.env
+.env.prod

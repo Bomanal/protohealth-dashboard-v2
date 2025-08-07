@@ -47,7 +47,7 @@ export default function PatientInteractionDetails() {
     }
     // Only fetch if it's a UUID (API data)
     if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
-      fetch(`http://127.0.0.1:8000/case-details/${id}`)
+              fetch(`/case-details/${id}`)
         .then(res => res.json())
         .then(data => {
           setDetails(data)

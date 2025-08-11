@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import datetime
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from src.models import (
     TriageProtocolsList, ProtocolThreads, Nodes, 
@@ -368,25 +369,38 @@ class ProtocolParser:
                 )
                 self.db_session.add(thread_outcome)
                 
-                # Create thread node values (the steps)
+                # Create thread node values (the steps) with dedupe and upsert
                 steps = thread_data.get('steps', [])
+
+                # Pre-insertion dedupe: last value wins per (thread_id, node_id)
+                node_value_map: dict[str, str] = {}
+
                 for step_data in steps:
                     node_name = step_data.get('node_name', '')
                     selected_value = step_data.get('selected_value', '')
-                    
-                    # Get node_id from our mapping
+
                     node_id = node_mapping.get(node_name)
                     if not node_id:
                         print(f"⚠️  Warning: Node '{node_name}' not found in mapping")
                         continue
-                    
-                    # Create thread node value record
-                    thread_node_value = ThreadNodeValues(
-                        thread_id=thread_id,
-                        node_id=node_id,
-                        node_value=selected_value
+
+                    previous_value = node_value_map.get(node_id)
+                    if previous_value is not None and previous_value != selected_value:
+                        print(f"↔️  Duplicate value for node '{node_name}' in thread {thread_id}: "
+                              f"'{previous_value}' -> '{selected_value}' (keeping last)")
+                    node_value_map[node_id] = selected_value
+
+                # Upsert unique (thread_id, node_id) pairs
+                for node_id, selected_value in node_value_map.items():
+                    upsert_stmt = (
+                        pg_insert(ThreadNodeValues.__table__)
+                        .values(thread_id=thread_id, node_id=node_id, node_value=selected_value)
+                        .on_conflict_do_update(
+                            index_elements=[ThreadNodeValues.thread_id, ThreadNodeValues.node_id],
+                            set_={"node_value": selected_value},
+                        )
                     )
-                    self.db_session.add(thread_node_value)
+                    self.db_session.execute(upsert_stmt)
                 
                 created_threads += 1
                 print(f"  ✅ Created thread {thread_id} for '{thread_data.get('final_condition')}' with {len(steps)} steps")

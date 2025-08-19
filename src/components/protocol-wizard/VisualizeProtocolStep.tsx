@@ -184,6 +184,22 @@ export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtoco
     }
   }
 
+  // Auto-select the created protocol when protocols load
+  useEffect(() => {
+    if (protocols.length > 0 && data.protocol_internal_id && !selectedProtocolId) {
+      // Find the protocol that matches our internal ID
+      const createdProtocol = protocols.find(p => 
+        p.protocol_name === data.name || 
+        p.protocol_description?.includes(data.name)
+      )
+      
+      if (createdProtocol) {
+        setSelectedProtocolId(createdProtocol.protocol_id)
+        setSelectedProtocol(createdProtocol.protocol_name)
+      }
+    }
+  }, [protocols, data.protocol_internal_id, data.name, selectedProtocolId])
+
   const hasUnsavedChanges = () => {
     return Object.keys(pendingNodeChanges).length > 0 || Object.keys(pendingAcceptanceChanges).length > 0;
   };

@@ -116,6 +116,6 @@ export function useProtocolEngine() {
     uploadProtocolData,
     getProtocolStatus,
     loading,
-    error,
+    error
   }
 } 

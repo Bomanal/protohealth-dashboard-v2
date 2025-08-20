@@ -22,6 +22,7 @@ class CaseDetailsItem(BaseModel):
     summary: Optional[str]
     medical_history: Optional[str]
     issue: Optional[str]
+    dob: Optional[datetime.date]
 
     class Config:
         orm_mode = True
@@ -36,11 +37,12 @@ def get_case_details(db: Session = Depends(get_db)):
             models.Conversations.call_end_time.label("last_call"),
             models.Conversations.conversation_status.label("status"),
             models.TriageOutcomes.final_condition.label("preliminary_diagnosis"),
-            models.TriageOutcomes.triage_outcome.label("xtriage_outcome"),
+            models.TriageOutcomes.triage_outcome.label("triage_outcome"),
             models.ConversationTranscripts.conversation_transcript.label("call_log"),
             models.ConversationTranscripts.conversation_summary.label("summary"),
             models.InitialAssessments.medical_history.label("medical_history"),
             models.InitialAssessments.current_complaint.label("issue"),
+            models.InitialAssessments.dob.label("dob"),
         )
         .outerjoin(models.TriageOutcomes, models.Conversations.session_id == models.TriageOutcomes.session_id)
         .outerjoin(models.ConversationTranscripts, models.Conversations.session_id == models.ConversationTranscripts.session_id)
@@ -64,6 +66,7 @@ def get_case_details_by_id(session_id: uuid.UUID, db: Session = Depends(get_db))
             models.ConversationTranscripts.conversation_summary.label("summary"),
             models.InitialAssessments.medical_history.label("medical_history"),
             models.InitialAssessments.current_complaint.label("issue"),
+            models.InitialAssessments.dob.label("dob"),
         )
         .outerjoin(models.TriageOutcomes, models.Conversations.session_id == models.TriageOutcomes.session_id)
         .outerjoin(models.ConversationTranscripts, models.Conversations.session_id == models.ConversationTranscripts.session_id)

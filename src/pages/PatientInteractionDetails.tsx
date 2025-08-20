@@ -32,6 +32,7 @@ type CaseDetailsItem = {
   summary: string | null;
   medical_history: string | null;
   issue: string | null;
+  dob: string | null;
 };
 
 export default function PatientInteractionDetails() {
@@ -214,8 +215,8 @@ export default function PatientInteractionDetails() {
                     <p className="text-lg font-semibold">{"user_name" in data ? (data.user_name || "John Smith") : ("patientName" in data ? data.patientName : "John Smith")}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">DOB</label>
-                    <p className="text-lg">{"dateOfBirth" in data ? data.dateOfBirth : "1985-03-15"}</p>
+                                      <label className="text-sm font-medium text-muted-foreground">DOB</label>
+                  <p className="text-lg">{"dob" in data ? data.dob : ("dateOfBirth" in data ? data.dateOfBirth : "1985-03-15")}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Patient ID</label>

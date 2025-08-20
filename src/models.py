@@ -1,6 +1,6 @@
 from typing import Optional
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKeyConstraint, Integer, PrimaryKeyConstraint, Text, Uuid, text, String, UniqueConstraint, Index, Boolean, func
+from sqlalchemy import CheckConstraint, DateTime, ForeignKeyConstraint, Integer, PrimaryKeyConstraint, Text, Uuid, text, String, UniqueConstraint, Index, Boolean, func , Date
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 import datetime
@@ -64,6 +64,7 @@ class InitialAssessments(Base):
     medical_history: Mapped[Optional[str]] = mapped_column(Text)
     current_complaint: Mapped[Optional[str]] = mapped_column(Text)
     body_part_affected: Mapped[Optional[str]] = mapped_column(Text)
+    dob: Mapped[Optional[datetime.date]] = mapped_column(Date)  # new column
 
 
 class PerformanceMetrics(Base):

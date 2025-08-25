@@ -258,7 +258,7 @@ export default function PatientInteractionDetails() {
                     </div>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">Preliminary Diagnosis</label>
+                    <label className="text-sm font-medium text-muted-foreground">Medical Condition to Consider</label>
                     <p className="text-lg">{"preliminary_diagnosis" in data ? data.preliminary_diagnosis : ("preliminaryDiagnosis" in data ? data.preliminaryDiagnosis : "—")}</p>
                   </div>
                   <div>

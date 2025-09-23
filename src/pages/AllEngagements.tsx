@@ -41,6 +41,7 @@ export default function AllEngagements() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedDepartment, setSelectedDepartment] = useState("all")
   const [selectedStatus, setSelectedStatus] = useState("all")
+  const [selectedCallType, setSelectedCallType] = useState("all")
 
   useEffect(() => {
             fetch("/case-list") // Use your actual API URL
@@ -62,7 +63,15 @@ export default function AllEngagements() {
                          (sourceDetail?.toLowerCase().includes(searchQuery.toLowerCase()))
     const matchesDepartment = selectedDepartment === "all" || ("department" in interaction && interaction.department === selectedDepartment)
     const matchesStatus = selectedStatus === "all" || interaction.status === selectedStatus
-    return matchesSearch && matchesDepartment && matchesStatus
+    
+    // Call type filter
+    const isOutbound = "source" in interaction && interaction.source === "outbound_flow"
+    const isInbound = "source" in interaction && interaction.source !== "outbound_flow"
+    const matchesCallType = selectedCallType === "all" || 
+                           (selectedCallType === "outbound" && isOutbound) ||
+                           (selectedCallType === "inbound" && isInbound)
+    
+    return matchesSearch && matchesDepartment && matchesStatus && matchesCallType
   })
 
   const getDepartmentIcon = (department: string) => {
@@ -201,6 +210,32 @@ export default function AllEngagements() {
             </div>
             
             <div className="flex flex-wrap gap-2">
+              <div className="flex gap-2">
+                <Button
+                  variant={selectedCallType === "all" ? "default" : "outline"}
+                  onClick={() => setSelectedCallType("all")}
+                  size="sm"
+                >
+                  All Call Types
+                </Button>
+                <Button
+                  variant={selectedCallType === "inbound" ? "default" : "outline"}
+                  onClick={() => setSelectedCallType("inbound")}
+                  size="sm"
+                >
+                  <Phone className="h-4 w-4 mr-1" />
+                  Inbound
+                </Button>
+                <Button
+                  variant={selectedCallType === "outbound" ? "default" : "outline"}
+                  onClick={() => setSelectedCallType("outbound")}
+                  size="sm"
+                >
+                  <ArrowRight className="h-4 w-4 mr-1" />
+                  Outbound
+                </Button>
+              </div>
+
               <div className="flex gap-2">
                 <Button
                   variant={selectedDepartment === "all" ? "default" : "outline"}
@@ -382,17 +417,19 @@ export default function AllEngagements() {
                             </div>
                           </div>
 
-                          {/* Triage Outcome */}
-                          <div className="space-y-3">
-                            <div>
-                              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
-                                Triage Outcome
-                              </p>
-                              <p className="text-sm font-medium">
-                                {triageOutcome || "Pending"}
-                              </p>
+                          {/* Triage Outcome - Only show for inbound calls */}
+                          {!("source" in interaction && interaction.source === "outbound_flow") && (
+                            <div className="space-y-3">
+                              <div>
+                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                                  Triage Outcome
+                                </p>
+                                <p className="text-sm font-medium">
+                                  {triageOutcome || "Pending"}
+                                </p>
+                              </div>
                             </div>
-                          </div>
+                          )}
                         </div>
 
                         {/* Action Button */}

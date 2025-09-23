@@ -19,12 +19,12 @@ interface IdentifyPatientsStepProps {
 }
 
 const CALL_TYPES = [
-  "Post-Surgery Follow-up",
-  "Appointment Reminder", 
-  "Test Results Review",
-  "Medication Check",
-  "Wellness Check",
-  "Insurance Verification"
+  "Post-surgery follow-up",
+  "Appointment reminder", 
+  "Test results review",
+  "Medication check",
+  "Wellness check",
+  "Insurance verification"
 ]
 
 export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatientsStepProps) {
@@ -33,6 +33,7 @@ export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatient
     name: "",
     dob: "",
     gender: "",
+    phoneNumber: "",
     callType: "",
     medicalConditions: "",
     additionalNotes: ""
@@ -40,7 +41,7 @@ export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatient
   const [uploadErrors, setUploadErrors] = useState<string[]>([])
 
   const addPatient = () => {
-    if (currentPatient.name && currentPatient.dob && currentPatient.gender && currentPatient.callType) {
+    if (currentPatient.name && currentPatient.dob && currentPatient.gender && currentPatient.phoneNumber && currentPatient.callType) {
       const newPatient = { ...currentPatient, id: Date.now().toString() }
       onUpdate({ 
         patients: [...data.patients, newPatient]
@@ -49,6 +50,7 @@ export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatient
         name: "",
         dob: "",
         gender: "",
+        phoneNumber: "",
         callType: "",
         medicalConditions: "",
         additionalNotes: ""
@@ -71,8 +73,9 @@ export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatient
           id: "1",
           name: "John Doe",
           dob: "1980-01-15",
-          gender: "Male", 
-          callType: "Post-Surgery Follow-up",
+          gender: "Male",
+          phoneNumber: "(555) 123-4567",
+          callType: "Post-surgery follow-up",
           medicalConditions: "Hypertension, Diabetes",
           additionalNotes: "Recent cardiac surgery"
         },
@@ -81,6 +84,7 @@ export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatient
           name: "Jane Smith",
           dob: "1975-06-22",
           gender: "Female",
+          phoneNumber: "(555) 987-6543",
           callType: "Invalid Call Type", // This will trigger an error
           medicalConditions: "Asthma",
           additionalNotes: ""
@@ -119,23 +123,23 @@ export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatient
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm">
                   <Info className="h-4 w-4 mr-2" />
-                  Field Requirements
+                  Field requirements
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-2xl">
                 <DialogHeader>
-                  <DialogTitle>Field Format Requirements</DialogTitle>
+                  <DialogTitle>Field format requirements</DialogTitle>
                   <DialogDescription>
                     Review the expected format for each field when uploading patient data.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
                   <div>
-                    <h4 className="font-medium">Patient Name</h4>
+                    <h4 className="font-medium">Patient name</h4>
                     <p className="text-sm text-muted-foreground">Full name (First Last). Example: "John Doe"</p>
                   </div>
                   <div>
-                    <h4 className="font-medium">Date of Birth</h4>
+                    <h4 className="font-medium">Date of birth</h4>
                     <p className="text-sm text-muted-foreground">Format: YYYY-MM-DD. Example: "1980-01-15"</p>
                   </div>
                   <div>
@@ -143,15 +147,19 @@ export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatient
                     <p className="text-sm text-muted-foreground">Options: "Male", "Female", "Other"</p>
                   </div>
                   <div>
-                    <h4 className="font-medium">Call Type</h4>
+                    <h4 className="font-medium">Phone number</h4>
+                    <p className="text-sm text-muted-foreground">Format: (XXX) XXX-XXXX. Example: "(555) 123-4567"</p>
+                  </div>
+                  <div>
+                    <h4 className="font-medium">Call type</h4>
                     <p className="text-sm text-muted-foreground">Must match exactly: {CALL_TYPES.join(", ")}</p>
                   </div>
                   <div>
-                    <h4 className="font-medium">Medical Conditions</h4>
+                    <h4 className="font-medium">Medical conditions</h4>
                     <p className="text-sm text-muted-foreground">Free text. Separate multiple conditions with commas.</p>
                   </div>
                   <div>
-                    <h4 className="font-medium">Additional Notes</h4>
+                    <h4 className="font-medium">Additional notes</h4>
                     <p className="text-sm text-muted-foreground">Free text. Any relevant information for the call.</p>
                   </div>
                 </div>
@@ -162,14 +170,14 @@ export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatient
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="manual">Enter Manually</TabsTrigger>
+              <TabsTrigger value="manual">Enter manually</TabsTrigger>
               <TabsTrigger value="upload">Upload CSV</TabsTrigger>
             </TabsList>
             
             <TabsContent value="manual" className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Patient Name *</Label>
+                  <Label htmlFor="name">Patient name *</Label>
                   <Input
                     id="name"
                     value={currentPatient.name}
@@ -179,7 +187,7 @@ export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatient
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="dob">Date of Birth *</Label>
+                  <Label htmlFor="dob">Date of birth *</Label>
                   <Input
                     id="dob"
                     type="date"
@@ -203,7 +211,17 @@ export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatient
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="callType">Call Type *</Label>
+                  <Label htmlFor="phoneNumber">Phone number *</Label>
+                  <Input
+                    id="phoneNumber"
+                    value={currentPatient.phoneNumber}
+                    onChange={(e) => setCurrentPatient(prev => ({ ...prev, phoneNumber: e.target.value }))}
+                    placeholder="(555) 123-4567"
+                  />
+                </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="callType">Call type *</Label>
                   <Select value={currentPatient.callType} onValueChange={(value) => setCurrentPatient(prev => ({ ...prev, callType: value }))}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select call type" />
@@ -218,7 +236,7 @@ export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatient
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="conditions">Existing Medical Conditions</Label>
+                <Label htmlFor="conditions">Existing medical conditions</Label>
                 <Textarea
                   id="conditions"
                   value={currentPatient.medicalConditions}
@@ -229,7 +247,7 @@ export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatient
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="notes">Additional Notes</Label>
+                <Label htmlFor="notes">Additional notes</Label>
                 <Textarea
                   id="notes"
                   value={currentPatient.additionalNotes}
@@ -241,11 +259,11 @@ export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatient
 
               <Button
                 onClick={addPatient}
-                disabled={!currentPatient.name || !currentPatient.dob || !currentPatient.gender || !currentPatient.callType}
+                disabled={!currentPatient.name || !currentPatient.dob || !currentPatient.gender || !currentPatient.phoneNumber || !currentPatient.callType}
                 className="w-full"
               >
                 <Plus className="h-4 w-4 mr-2" />
-                Add Patient
+                Add patient
               </Button>
             </TabsContent>
 
@@ -253,7 +271,7 @@ export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatient
               <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
                 <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                 <div className="space-y-2">
-                  <h3 className="font-medium">Upload Patient Data</h3>
+                  <h3 className="font-medium">Upload patient data</h3>
                   <p className="text-sm text-muted-foreground">
                     Upload a CSV file with patient information. Make sure call types match the available protocols.
                   </p>
@@ -273,7 +291,7 @@ export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatient
 
               {uploadErrors.length > 0 && (
                 <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
-                  <h4 className="font-medium text-destructive mb-2">Upload Issues Found:</h4>
+                  <h4 className="font-medium text-destructive mb-2">Upload issues found:</h4>
                   <ul className="space-y-1">
                     {uploadErrors.map((error, index) => (
                       <li key={index} className="text-sm text-destructive">• {error}</li>
@@ -290,7 +308,7 @@ export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatient
           {data.patients.length > 0 && (
             <div className="mt-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-medium">Added Patients ({data.patients.length})</h3>
+                <h3 className="font-medium">Added patients ({data.patients.length})</h3>
               </div>
               <div className="border rounded-lg">
                 <Table>
@@ -299,7 +317,8 @@ export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatient
                       <TableHead>Name</TableHead>
                       <TableHead>DOB</TableHead>
                       <TableHead>Gender</TableHead>
-                      <TableHead>Call Type</TableHead>
+                      <TableHead>Phone</TableHead>
+                      <TableHead>Call type</TableHead>
                       <TableHead className="w-[50px]"></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -309,6 +328,7 @@ export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatient
                         <TableCell className="font-medium">{patient.name}</TableCell>
                         <TableCell>{patient.dob}</TableCell>
                         <TableCell>{patient.gender}</TableCell>
+                        <TableCell>{patient.phoneNumber}</TableCell>
                         <TableCell>
                           <Badge variant="secondary">{patient.callType}</Badge>
                         </TableCell>
@@ -335,7 +355,7 @@ export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatient
               disabled={!canProceed}
               className="w-full"
             >
-              Continue to Schedule Call
+              Continue to schedule call
               <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
           </div>

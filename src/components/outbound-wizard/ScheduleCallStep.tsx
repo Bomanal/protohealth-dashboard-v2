@@ -33,7 +33,7 @@ export function ScheduleCallStep({ data, onUpdate, onNext, onBack }: ScheduleCal
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Clock className="h-5 w-5 text-primary" />
-            Schedule Call
+            Schedule call
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -106,11 +106,11 @@ export function ScheduleCallStep({ data, onUpdate, onNext, onBack }: ScheduleCal
             </div>
 
             <div className="bg-muted/50 p-4 rounded-lg">
-              <h4 className="font-medium text-sm mb-2">Call Summary</h4>
+              <h4 className="font-medium text-sm mb-2">Call summary</h4>
               <div className="space-y-1 text-sm text-muted-foreground">
                 <p>• {data.patients.length} patients will be called</p>
                 <p>• Calls will use the selected outbound communication protocols</p>
-                <p>• You can monitor progress in the Patient Interactions dashboard</p>
+                <p>• You can monitor progress in the patient interactions dashboard</p>
               </div>
             </div>
 
@@ -124,7 +124,7 @@ export function ScheduleCallStep({ data, onUpdate, onNext, onBack }: ScheduleCal
                 disabled={!canProceed}
                 className="flex-1"
               >
-                Continue to Review
+                Continue to review
                 <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             </div>

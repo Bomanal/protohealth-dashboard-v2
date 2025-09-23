@@ -13,6 +13,7 @@ export interface PatientData {
   name: string
   dob: string
   gender: string
+  phoneNumber: string
   callType: string
   medicalConditions: string
   additionalNotes: string
@@ -26,9 +27,9 @@ export interface OutboundCallData {
 }
 
 const STEPS = [
-  { id: 1, title: "Identify Patients", description: "Patient information" },
-  { id: 2, title: "Schedule Call", description: "Call timing" },
-  { id: 3, title: "Review & Go Live", description: "Final review" }
+  { id: 1, title: "Identify patients", description: "Patient information" },
+  { id: 2, title: "Schedule call", description: "Call timing" },
+  { id: 3, title: "Review & go live", description: "Final review" }
 ]
 
 export function TriggerOutboundCallsWizard() {
@@ -103,12 +104,12 @@ export function TriggerOutboundCallsWizard() {
             <div className="flex items-center gap-4">
               <Button variant="ghost" size="sm" onClick={() => navigate('/all-engagements')}>
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Patient Interactions
+                Back to patient interactions
               </Button>
               <div className="h-6 w-px bg-border" />
               <div>
                 <h1 className="text-xl font-semibold bg-gradient-primary bg-clip-text text-transparent">
-                  Trigger Outbound Calls
+                  Trigger outbound calls
                 </h1>
                 <p className="text-sm text-muted-foreground">
                   Step {currentStep} of 3: {STEPS[currentStep - 1]?.title}

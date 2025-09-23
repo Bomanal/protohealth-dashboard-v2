@@ -47,12 +47,12 @@ export function ReviewGoLiveStep({ data, onNext, onBack }: ReviewGoLiveStepProps
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Phone className="h-5 w-5 text-primary" />
-            Review & Go Live
+            Review & go live
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
-            {/* Campaign Summary */}
+            {/* Campaign summary */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="p-4 rounded-lg bg-accent/50 border">
                 <div className="flex items-center gap-2 mb-2">
@@ -65,7 +65,7 @@ export function ReviewGoLiveStep({ data, onNext, onBack }: ReviewGoLiveStepProps
               <div className="p-4 rounded-lg bg-accent/50 border">
                 <div className="flex items-center gap-2 mb-2">
                   <Phone className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-medium">Call Types</span>
+                  <span className="text-sm font-medium">Call types</span>
                 </div>
                 <p className="text-2xl font-bold text-primary">{uniqueCallTypes.length}</p>
               </div>
@@ -81,9 +81,9 @@ export function ReviewGoLiveStep({ data, onNext, onBack }: ReviewGoLiveStepProps
 
             <Separator />
 
-            {/* Call Types & Protocols */}
+            {/* Call types & protocols */}
             <div>
-              <h3 className="font-medium mb-3">Active Call Types & Protocols</h3>
+              <h3 className="font-medium mb-3">Active call types & protocols</h3>
               <div className="space-y-2">
                 {uniqueCallTypes.map(callType => (
                   <div key={callType} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
@@ -98,18 +98,20 @@ export function ReviewGoLiveStep({ data, onNext, onBack }: ReviewGoLiveStepProps
 
             <Separator />
 
-            {/* Patient List */}
+            {/* Patient list */}
             <div>
-              <h3 className="font-medium mb-3">Patients to be Called ({data.patients.length})</h3>
-              <div className="border rounded-lg">
+              <h3 className="font-medium mb-3">Patients to be called ({data.patients.length})</h3>
+              <div className="border rounded-lg overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>DOB</TableHead>
-                      <TableHead>Gender</TableHead>
-                      <TableHead>Call Type</TableHead>
-                      <TableHead>Medical Conditions</TableHead>
+                      <TableHead className="min-w-[120px]">Name</TableHead>
+                      <TableHead className="min-w-[100px]">DOB</TableHead>
+                      <TableHead className="min-w-[80px]">Gender</TableHead>
+                      <TableHead className="min-w-[130px]">Phone</TableHead>
+                      <TableHead className="min-w-[150px]">Call type</TableHead>
+                      <TableHead className="min-w-[180px]">Medical conditions</TableHead>
+                      <TableHead className="min-w-[150px]">Additional notes</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -118,13 +120,21 @@ export function ReviewGoLiveStep({ data, onNext, onBack }: ReviewGoLiveStepProps
                         <TableCell className="font-medium">{patient.name}</TableCell>
                         <TableCell>{patient.dob}</TableCell>
                         <TableCell>{patient.gender}</TableCell>
+                        <TableCell>{patient.phoneNumber}</TableCell>
                         <TableCell>
                           <Badge variant="outline">{patient.callType}</Badge>
                         </TableCell>
                         <TableCell>
-                          <div className="max-w-xs">
-                            <p className="text-sm text-muted-foreground truncate">
+                          <div className="max-w-[180px]">
+                            <p className="text-sm text-muted-foreground break-words">
                               {patient.medicalConditions || "None specified"}
+                            </p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="max-w-[150px]">
+                            <p className="text-sm text-muted-foreground break-words">
+                              {patient.additionalNotes || "None"}
                             </p>
                           </div>
                         </TableCell>
@@ -137,25 +147,25 @@ export function ReviewGoLiveStep({ data, onNext, onBack }: ReviewGoLiveStepProps
 
             <Separator />
 
-            {/* Final Actions */}
+            {/* Final actions */}
             <div className="bg-muted/30 p-6 rounded-lg">
               <h4 className="font-medium mb-3 flex items-center gap-2">
                 <Play className="h-4 w-4 text-primary" />
-                Ready to Go Live?
+                Ready to go live?
               </h4>
               <p className="text-sm text-muted-foreground mb-4">
-                Once you click "Go Live", the outbound calling system will be triggered according to your schedule. 
-                You can monitor progress and manage calls from the Patient Interactions dashboard.
+                Once you click "Go live", the outbound calling system will be triggered according to your schedule. 
+                You can monitor progress and manage calls from the patient interactions dashboard.
               </p>
               
               <div className="flex gap-3">
                 <Button variant="outline" onClick={onBack} className="flex-1">
                   <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Schedule
+                  Back to schedule
                 </Button>
                 <Button onClick={onNext} className="flex-1 bg-gradient-primary hover:bg-gradient-primary/90">
                   <Play className="h-4 w-4 mr-2" />
-                  Go Live & Trigger Calls
+                  Go live & trigger calls
                 </Button>
               </div>
             </div>

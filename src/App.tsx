@@ -17,6 +17,7 @@ import CreateTriageProtocol from "./pages/CreateTriageProtocol";
 import CreateProtocol from "./pages/CreateProtocol";
 import NotFound from "./pages/NotFound";
 import VisualizeProtocolPage from "@/pages/VisualizeProtocol";
+import TriggerOutboundCalls from "./pages/TriggerOutboundCalls";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +42,7 @@ const App = () => (
           <Route path="/create-triage-protocol" element={<CreateTriageProtocol />} />
           <Route path="/create-protocol" element={<CreateProtocol />} />
           <Route path="/visualize-protocol" element={<VisualizeProtocolPage />} />
+          <Route path="/trigger-outbound-calls" element={<TriggerOutboundCalls />} />
 
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

@@ -39,6 +39,7 @@ const manageProtocolsItems = [
 const patientInteractionsItems = [
   { title: "Needs Action", url: "/needs-action", icon: AlertTriangle },
   { title: "View All Engagements", url: "/all-engagements", icon: Eye },
+  { title: "Trigger Outbound Calls", url: "/trigger-outbound-calls", icon: Send },
 ]
 
 export function AppSidebar() {

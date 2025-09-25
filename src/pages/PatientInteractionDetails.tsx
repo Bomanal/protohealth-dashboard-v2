@@ -147,6 +147,10 @@ export default function PatientInteractionDetails() {
         case "engaged": return "Completed"
         case "message_sent": return "No contact"
         case "in_queue": return "In queue"
+        case "dropped": return "Dropped"
+        case "reschedule_requested": return "Reschedule requested"
+        case "nurse_callback_needed": return "Nurse callback needed"
+        case "abandoned": return "Abandoned"
         default: return data.status
       }
     } else {
@@ -234,19 +238,27 @@ export default function PatientInteractionDetails() {
                     <label className="text-sm font-medium text-muted-foreground">Date of Interaction</label>
                     <p className="text-lg">{"timestamp" in data ? formatDateTime(data.timestamp) : ("last_call" in data && data.last_call ? formatDateTime(data.last_call) : "N/A")}</p>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Channel Subdisposition</label>
-                    <p className="text-lg">
-                      {"source" in data ? (data.source === "outbound_flow" 
-                        ? (data.sourceDetail || "Outbound Flow")
-                        : data.source.replace("_", " ")) : "N/A"}
-                    </p>
-                  </div>
+                  {"source" in data && data.source === "outbound_flow" ? (
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Outbound call type</label>
+                      <p className="text-lg">{data.sourceDetail || "Outbound Flow"}</p>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Channel Subdisposition</label>
+                      <p className="text-lg">
+                        {"source" in data ? data.source.replace("_", " ") : "N/A"}
+                      </p>
+                    </div>
+                  )}
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Channel</label>
                     <div className="flex items-center gap-2 mt-1">
                       {"source" in data ? getSourceIcon(data.source) : <MessageSquare className="h-4 w-4" />}
-                      <span className="text-lg">{"source" in data ? getChannelType(data.source) : "N/A"}</span>
+                      <span className="text-lg">
+                        {"source" in data && data.source === "outbound_flow" ? "Outbound" : 
+                         ("source" in data ? getChannelType(data.source) : "N/A")}
+                      </span>
                     </div>
                   </div>
                   <div>
@@ -257,36 +269,103 @@ export default function PatientInteractionDetails() {
                       </Badge>
                     </div>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Medical Condition to Consider</label>
-                    <p className="text-lg">{"preliminary_diagnosis" in data ? data.preliminary_diagnosis : ("preliminaryDiagnosis" in data ? data.preliminaryDiagnosis : "—")}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Triage Outcome</label>
-                    <p className="text-lg">
-                      {"triage_outcome" in data ? data.triage_outcome : ("triageOutcome" in data ? data.triageOutcome : "—")}
-                    </p>
-                  </div>
+                  {/* Show different fields for outbound vs inbound calls */}
+                  {"source" in data && data.source === "outbound_flow" ? (
+                    <>
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Name of person connected with</label>
+                        <p className="text-lg">{(data as any).connectedPersonName || "—"}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Relation of the person connected with</label>
+                        <p className="text-lg">{(data as any).connectedPersonRelation || "—"}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Did call complete?</label>
+                        <p className="text-lg">{(data as any).callCompleted ? "Yes" : "No"}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Patient satisfied?</label>
+                        <p className="text-lg">{(data as any).patientSatisfied ? "Yes" : "No"}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Confidence level</label>
+                        <p className="text-lg">{(data as any).confidenceLevel || "—"}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Follow up needed?</label>
+                        <p className="text-lg">{(data as any).followUpNeeded ? "Yes" : "No"}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Reschedule requested?</label>
+                        <p className="text-lg">{(data as any).rescheduleRequested ? "Yes" : "No"}</p>
+                      </div>
+                      {(data as any).rescheduleRequested && (data as any).rescheduleDateTime && (
+                        <div>
+                          <label className="text-sm font-medium text-muted-foreground">Reschedule date and time</label>
+                          <p className="text-lg">{formatDateTime((data as any).rescheduleDateTime)}</p>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Preliminary Diagnosis</label>
+                        <p className="text-lg">{"preliminary_diagnosis" in data ? data.preliminary_diagnosis : ("preliminaryDiagnosis" in data ? data.preliminaryDiagnosis : "—")}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Triage Outcome</label>
+                        <p className="text-lg">
+                          {"triage_outcome" in data ? data.triage_outcome : ("triageOutcome" in data ? data.triageOutcome : "—")}
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </div>
 
-                {/* Clinical Summary */}
-                {(("summary" in data && data.summary) || ("clinicalSummary" in data && data.clinicalSummary)) && (
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Clinical Summary</label>
-                    <div className="mt-2 p-4 bg-muted/50 rounded-lg">
-                      <p className="text-sm leading-relaxed">{"summary" in data ? data.summary : data.clinicalSummary}</p>
-                    </div>
-                  </div>
+                {/* Additional questions and concerns - Only for outbound calls */}
+                {"source" in data && data.source === "outbound_flow" && (
+                  <>
+                    {(data as any).additionalQuestions && (
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Additional questions from patient</label>
+                        <div className="mt-2 p-4 bg-muted/50 rounded-lg">
+                          <p className="text-sm leading-relaxed">{(data as any).additionalQuestions}</p>
+                        </div>
+                      </div>
+                    )}
+                    {(data as any).concernsRaised && (
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Concerns raised</label>
+                        <div className="mt-2 p-4 bg-warning/10 border border-warning/20 rounded-lg">
+                          <p className="text-sm leading-relaxed">{(data as any).concernsRaised}</p>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
 
-                {/* Patient Issue */}
-                {(("issue" in data && data.issue) || ("patientIssue" in data && data.patientIssue)) && (
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Patient Issue</label>
-                    <div className="mt-2 p-4 bg-warning/10 border border-warning/20 rounded-lg">
-                      <p className="text-sm leading-relaxed">{"issue" in data ? data.issue : data.patientIssue}</p>
-                    </div>
-                  </div>
+                {/* Clinical Summary and Patient Issue - Only for inbound calls */}
+                {!("source" in data && data.source === "outbound_flow") && (
+                  <>
+                    {(("summary" in data && data.summary) || ("clinicalSummary" in data && data.clinicalSummary)) && (
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Clinical Summary</label>
+                        <div className="mt-2 p-4 bg-muted/50 rounded-lg">
+                          <p className="text-sm leading-relaxed">{"summary" in data ? data.summary : data.clinicalSummary}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {(("issue" in data && data.issue) || ("patientIssue" in data && data.patientIssue)) && (
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Patient Issue</label>
+                        <div className="mt-2 p-4 bg-warning/10 border border-warning/20 rounded-lg">
+                          <p className="text-sm leading-relaxed">{"issue" in data ? data.issue : data.patientIssue}</p>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
 
                 {/* Medical History */}

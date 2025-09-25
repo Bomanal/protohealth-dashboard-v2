@@ -1,4 +1,4 @@
-export type InteractionStatus = "engaged" | "message_sent" | "needs_action" | "in_queue" | "scheduled" | "scheduling_pending"
+export type InteractionStatus = "engaged" | "message_sent" | "needs_action" | "in_queue" | "scheduled" | "scheduling_pending" | "dropped" | "reschedule_requested" | "nurse_callback_needed" | "abandoned"
 
 export type InteractionSource = "outbound_flow" | "inbound_text" | "inbound_phone" | "inbound_email" | "inbound_scheduling"
 
@@ -29,6 +29,17 @@ export interface PatientInteraction {
   clinicalSummary?: string
   patientIssue?: string
   medicalHistory?: string
+  // Outbound call specific fields
+  connectedPersonName?: string
+  connectedPersonRelation?: string
+  callCompleted?: boolean
+  patientSatisfied?: boolean
+  additionalQuestions?: string
+  concernsRaised?: string
+  confidenceLevel?: number
+  followUpNeeded?: boolean
+  rescheduleRequested?: boolean
+  rescheduleDateTime?: Date
 }
 
 export interface OutboundFlow {

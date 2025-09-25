@@ -32,6 +32,7 @@ class PatientData(BaseModel):
     phone_number: str
     dob: Optional[str] = None  # Accept string; parse manually
     gender: str
+    call_type: Optional[str] = None
     medical_history: Optional[str] = None
     patient_context: Optional[str] = None
 
@@ -162,10 +163,13 @@ def create_batch_outbound_calls(
                         patient.patient_context = patient_data.patient_context
                 
                 # Create outbound call
+                # Prefer selected_protocol from batch payload; fall back to per-patient call_type if provided
+                procedure_value = call_data.selected_protocol or patient_data.call_type
+
                 call = models.OutboundCalls(
                     call_id=uuid.uuid4(),
                     patient_id=patient.patient_id,
-                    Procedure=call_data.selected_protocol,
+                    Procedure=procedure_value,
                     call_date=date.today() if call_data.scheduling_option == SchedulingOption.NOW else None,
                     call_time=datetime.now().time() if call_data.scheduling_option == SchedulingOption.NOW else None,
                     event_date=custom_dt.date() if custom_dt else None

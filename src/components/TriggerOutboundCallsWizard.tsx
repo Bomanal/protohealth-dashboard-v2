@@ -64,6 +64,8 @@ export function TriggerOutboundCallsWizard() {
         phone_number: patient.phoneNumber,
         dob: patient.dob,
         gender: patient.gender,
+        // Include per-patient call type so backend can set Procedure if selected_protocol is not provided
+        call_type: patient.callType || null,
         medical_history: patient.medicalConditions || null,
         patient_context: patient.additionalNotes || null
       }))

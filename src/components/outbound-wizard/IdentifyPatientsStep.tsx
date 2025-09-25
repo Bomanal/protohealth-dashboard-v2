@@ -10,7 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { OutboundCallData, PatientData } from "../TriggerOutboundCallsWizard"
-import { ArrowRight, Upload, Plus, Trash2, Info, X } from "lucide-react"
+import { ArrowRight, Upload, Plus, Trash2, Info, X, AlertCircle } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 interface IdentifyPatientsStepProps {
   data: OutboundCallData
@@ -28,6 +29,7 @@ const CALL_TYPES = [
 ]
 
 export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatientsStepProps) {
+  const { toast } = useToast()
   const [activeTab, setActiveTab] = useState("manual")
   const [currentPatient, setCurrentPatient] = useState<PatientData>({
     name: "",
@@ -39,13 +41,86 @@ export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatient
     additionalNotes: ""
   })
   const [uploadErrors, setUploadErrors] = useState<string[]>([])
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
+  const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false)
 
-  const addPatient = () => {
-    if (currentPatient.name && currentPatient.dob && currentPatient.gender && currentPatient.phoneNumber && currentPatient.callType) {
+  // Validation functions
+  const validatePatient = (patient: PatientData): Record<string, string> => {
+    const errors: Record<string, string> = {}
+    
+    if (!patient.name || patient.name.trim().length < 2) {
+      errors.name = "Name must be at least 2 characters long"
+    }
+    
+    if (!patient.dob) {
+      errors.dob = "Date of birth is required"
+    } else {
+      const dob = new Date(patient.dob)
+      const today = new Date()
+      if (dob > today) {
+        errors.dob = "Date of birth cannot be in the future"
+      }
+    }
+    
+    if (!patient.gender) {
+      errors.gender = "Gender is required"
+    }
+    
+    if (!patient.phoneNumber) {
+      errors.phoneNumber = "Phone number is required"
+    } else {
+      const phoneDigits = patient.phoneNumber.replace(/\D/g, '')
+      if (phoneDigits.length < 10) {
+        errors.phoneNumber = "Phone number must contain at least 10 digits"
+      }
+    }
+    
+    if (!patient.callType) {
+      errors.callType = "Call type is required"
+    }
+    
+    return errors
+  }
+
+  const checkForDuplicate = async (phoneNumber: string): Promise<boolean> => {
+    try {
+      const response = await fetch(`/api/patients/search/by-phone/${encodeURIComponent(phoneNumber)}`)
+      return response.ok
+    } catch {
+      return false
+    }
+  }
+
+  const addPatient = async () => {
+    const errors = validatePatient(currentPatient)
+    setValidationErrors(errors)
+    
+    if (Object.keys(errors).length > 0) {
+      toast({
+        title: "Validation errors",
+        description: "Please fix the errors before adding the patient",
+        variant: "destructive"
+      })
+      return
+    }
+
+    // Check for duplicate phone number
+    setIsCheckingDuplicate(true)
+    try {
+      const isDuplicate = await checkForDuplicate(currentPatient.phoneNumber)
+      
+      if (isDuplicate) {
+        toast({
+          title: "Duplicate patient found",
+          description: "A patient with this phone number already exists. The existing patient will be updated with new information.",
+        })
+      }
+      
       const newPatient = { ...currentPatient, id: Date.now().toString() }
       onUpdate({ 
         patients: [...data.patients, newPatient]
       })
+      
       setCurrentPatient({
         name: "",
         dob: "",
@@ -55,6 +130,21 @@ export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatient
         medicalConditions: "",
         additionalNotes: ""
       })
+      setValidationErrors({})
+      
+      toast({
+        title: "Patient added successfully",
+        description: `${currentPatient.name} has been added to the call list`,
+      })
+      
+    } catch (error) {
+      toast({
+        title: "Error checking for duplicates",
+        description: "Patient added but couldn't verify for duplicates",
+        variant: "destructive"
+      })
+    } finally {
+      setIsCheckingDuplicate(false)
     }
   }
 
@@ -183,7 +273,14 @@ export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatient
                     value={currentPatient.name}
                     onChange={(e) => setCurrentPatient(prev => ({ ...prev, name: e.target.value }))}
                     placeholder="John Doe"
+                    className={validationErrors.name ? "border-destructive" : ""}
                   />
+                  {validationErrors.name && (
+                    <div className="flex items-center gap-1 text-sm text-destructive">
+                      <AlertCircle className="h-3 w-3" />
+                      {validationErrors.name}
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -193,13 +290,20 @@ export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatient
                     type="date"
                     value={currentPatient.dob}
                     onChange={(e) => setCurrentPatient(prev => ({ ...prev, dob: e.target.value }))}
+                    className={validationErrors.dob ? "border-destructive" : ""}
                   />
+                  {validationErrors.dob && (
+                    <div className="flex items-center gap-1 text-sm text-destructive">
+                      <AlertCircle className="h-3 w-3" />
+                      {validationErrors.dob}
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="gender">Gender *</Label>
                   <Select value={currentPatient.gender} onValueChange={(value) => setCurrentPatient(prev => ({ ...prev, gender: value }))}>
-                    <SelectTrigger>
+                    <SelectTrigger className={validationErrors.gender ? "border-destructive" : ""}>
                       <SelectValue placeholder="Select gender" />
                     </SelectTrigger>
                     <SelectContent>
@@ -208,6 +312,12 @@ export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatient
                       <SelectItem value="Other">Other</SelectItem>
                     </SelectContent>
                   </Select>
+                  {validationErrors.gender && (
+                    <div className="flex items-center gap-1 text-sm text-destructive">
+                      <AlertCircle className="h-3 w-3" />
+                      {validationErrors.gender}
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -217,13 +327,20 @@ export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatient
                     value={currentPatient.phoneNumber}
                     onChange={(e) => setCurrentPatient(prev => ({ ...prev, phoneNumber: e.target.value }))}
                     placeholder="(555) 123-4567"
+                    className={validationErrors.phoneNumber ? "border-destructive" : ""}
                   />
+                  {validationErrors.phoneNumber && (
+                    <div className="flex items-center gap-1 text-sm text-destructive">
+                      <AlertCircle className="h-3 w-3" />
+                      {validationErrors.phoneNumber}
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2 md:col-span-2">
                   <Label htmlFor="callType">Call type *</Label>
                   <Select value={currentPatient.callType} onValueChange={(value) => setCurrentPatient(prev => ({ ...prev, callType: value }))}>
-                    <SelectTrigger>
+                    <SelectTrigger className={validationErrors.callType ? "border-destructive" : ""}>
                       <SelectValue placeholder="Select call type" />
                     </SelectTrigger>
                     <SelectContent>
@@ -232,6 +349,12 @@ export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatient
                       ))}
                     </SelectContent>
                   </Select>
+                  {validationErrors.callType && (
+                    <div className="flex items-center gap-1 text-sm text-destructive">
+                      <AlertCircle className="h-3 w-3" />
+                      {validationErrors.callType}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -259,11 +382,11 @@ export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatient
 
               <Button
                 onClick={addPatient}
-                disabled={!currentPatient.name || !currentPatient.dob || !currentPatient.gender || !currentPatient.phoneNumber || !currentPatient.callType}
+                disabled={!currentPatient.name || !currentPatient.dob || !currentPatient.gender || !currentPatient.phoneNumber || !currentPatient.callType || isCheckingDuplicate}
                 className="w-full"
               >
                 <Plus className="h-4 w-4 mr-2" />
-                Add patient
+                {isCheckingDuplicate ? "Checking for duplicates..." : "Add patient"}
               </Button>
             </TabsContent>
 

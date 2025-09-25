@@ -19,6 +19,11 @@ export default defineConfig(({ mode }) => {
       host: "::",
       port: DEV_SERVER_PORT,
       proxy: {
+        '/api': {
+          target: API_BASE_URL,
+          changeOrigin: true,
+          secure: false,
+        },
         '/protocol_engine': {
           target: API_BASE_URL,
           changeOrigin: true,

@@ -77,9 +77,16 @@ def _digits_only(value: Optional[str]) -> Optional[str]:
         return value
 
 def _serialize_call(call: models.OutboundCalls) -> dict:
+    # Try to include patient fields via relationship
+    patient = getattr(call, 'patient', None)
+    patient_name = getattr(patient, 'name', None) if patient else None
+    patient_phone = getattr(patient, 'phone_number', None) if patient else None
+
     return {
         "call_id": str(call.call_id) if call.call_id else None,
         "patient_id": str(call.patient_id) if call.patient_id else None,
+        "patient_name": patient_name,
+        "patient_phone": patient_phone,
         "call_date": call.call_date.isoformat() if call.call_date else None,
         "call_time": call.call_time.isoformat() if call.call_time else None,
         "event_date": call.event_date.isoformat() if call.event_date else None,

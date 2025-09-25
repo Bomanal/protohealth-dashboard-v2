@@ -123,14 +123,28 @@ export function TriggerOutboundCallsWizard() {
       }
 
       const result = await response.json()
-      
+
       // Show success message
       toast({
         title: "Outbound calls created successfully!",
         description: `${result.success_count} calls scheduled. ${result.failure_count} failed.`,
       })
 
-      // Navigate to engagements page
+      // If triggering now, redirect to provided call URL with context
+      if (callData.schedulingOption === 'now' && Array.isArray(result.successful_calls) && result.successful_calls.length > 0) {
+        const firstCall = result.successful_calls[0]
+        const params = new URLSearchParams()
+        if (firstCall?.call_id) params.set('call_id', String(firstCall.call_id))
+        if (firstCall?.patient_id) params.set('patient_id', String(firstCall.patient_id))
+        if (firstCall?.patient_name) params.set('patient_name', String(firstCall.patient_name))
+        if (firstCall?.procedure) params.set('procedure', String(firstCall.procedure))
+
+        const targetUrl = `https://proto1demo.daily.co/Xiz1bOdUqkvoHquji258${params.toString() ? `?${params.toString()}` : ''}`
+        window.open(targetUrl, '_blank', 'noopener,noreferrer')
+        return
+      }
+
+      // Otherwise go back to engagements page
       navigate('/all-engagements')
     } catch (error) {
       console.error('Error creating outbound calls:', error)

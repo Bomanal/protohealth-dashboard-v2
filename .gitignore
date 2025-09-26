@@ -31,3 +31,6 @@ venv/
 .env.local
 .env
 .env.prod
+
+# Ignore visual folder (external monitoring tools)
+visual/

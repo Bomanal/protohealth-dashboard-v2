@@ -22,7 +22,7 @@ export function InboundFlowMonitor() {
   } = useInboundFlowMonitor();
 
   const { connectionStatus } = useWebSocket({
-    url: 'ws://localhost:8765',
+    url: 'ws://localhost:8766',
     onMessage: handleWebSocketMessage,
     onError: (error) => console.error('WebSocket error:', error),
     onOpen: () => console.log('Connected to FlowManager monitor'),

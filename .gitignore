@@ -27,6 +27,8 @@ dist-ssr
 __pycache__/
 *.py[cod]
 venv/
+.venv/
+
 # Ignore environment files
 .env.local
 .env

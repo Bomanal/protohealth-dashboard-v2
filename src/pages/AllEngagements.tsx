@@ -32,6 +32,7 @@ type CaseListItem = {
   status: string | null;
   preliminary_diagnosis: string | null;
   triage_outcome: string | null;
+  dob: string | null;
 };
 
 export default function AllEngagements() {
@@ -44,10 +45,17 @@ export default function AllEngagements() {
   const [selectedCallType, setSelectedCallType] = useState("all")
 
   useEffect(() => {
-            fetch("/case-list") // Use your actual API URL
+    fetch("/case-list") // Use your actual API URL
       .then((res) => res.json())
       .then((data) => {
-        setCases(data)
+        // Sort cases by last_call in descending order (most recent first)
+        const sortedData = data.sort((a: CaseListItem, b: CaseListItem) => {
+          if (!a.last_call && !b.last_call) return 0
+          if (!a.last_call) return 1
+          if (!b.last_call) return -1
+          return new Date(b.last_call).getTime() - new Date(a.last_call).getTime()
+        })
+        setCases(sortedData)
         setLoading(false)
       })
       .catch((err) => {
@@ -72,6 +80,40 @@ export default function AllEngagements() {
                            (selectedCallType === "inbound" && isInbound)
     
     return matchesSearch && matchesDepartment && matchesStatus && matchesCallType
+  }).sort((a, b) => {
+    // First, prioritize API entries (with last_call) over mock entries (with timestamp)
+    const isApiEntryA = "last_call" in a
+    const isApiEntryB = "last_call" in b
+    
+    // API entries come first
+    if (isApiEntryA && !isApiEntryB) return -1
+    if (!isApiEntryA && isApiEntryB) return 1
+    
+    // If both are API entries, sort by last_call in descending order
+    if (isApiEntryA && isApiEntryB) {
+      const timestampA = a.last_call
+      const timestampB = b.last_call
+      
+      if (!timestampA && !timestampB) return 0
+      if (!timestampA) return 1
+      if (!timestampB) return -1
+      
+      return new Date(timestampB).getTime() - new Date(timestampA).getTime()
+    }
+    
+    // If both are mock entries, sort by timestamp in descending order
+    if (!isApiEntryA && !isApiEntryB) {
+      const timestampA = a.timestamp
+      const timestampB = b.timestamp
+      
+      if (!timestampA && !timestampB) return 0
+      if (!timestampA) return 1
+      if (!timestampB) return -1
+      
+      return new Date(timestampB).getTime() - new Date(timestampA).getTime()
+    }
+    
+    return 0
   })
 
   const getDepartmentIcon = (department: string) => {
@@ -319,7 +361,7 @@ export default function AllEngagements() {
               {filteredInteractions.map((interaction) => {
                 // Safe property access for both API and mock data
                 const patientName = "user_name" in interaction ? (interaction.user_name || "John Smith") : ("patientName" in interaction ? interaction.patientName : "John Smith")
-                const dateOfBirth = "dateOfBirth" in interaction ? interaction.dateOfBirth : "1985-03-15"
+                const dateOfBirth = "dob" in interaction ? interaction.dob : ("dateOfBirth" in interaction ? interaction.dateOfBirth : "1985-03-15")
                 const callNumber = "call_id" in interaction ? interaction.call_id : ("callNumber" in interaction ? interaction.callNumber : "N/A")
                 const phoneNumber = "phone_number" in interaction ? interaction.phone_number : ("phoneNumber" in interaction ? interaction.phoneNumber : "N/A")
                 const preliminaryDiagnosis = "preliminary_diagnosis" in interaction ? interaction.preliminary_diagnosis : ("preliminaryDiagnosis" in interaction ? interaction.preliminaryDiagnosis : "N/A")

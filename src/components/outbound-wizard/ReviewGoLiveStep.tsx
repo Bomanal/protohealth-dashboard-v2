@@ -10,9 +10,10 @@ interface ReviewGoLiveStepProps {
   data: OutboundCallData
   onNext: () => void
   onBack: () => void
+  isLoading?: boolean
 }
 
-export function ReviewGoLiveStep({ data, onNext, onBack }: ReviewGoLiveStepProps) {
+export function ReviewGoLiveStep({ data, onNext, onBack, isLoading = false }: ReviewGoLiveStepProps) {
   const getScheduleText = () => {
     switch (data.schedulingOption) {
       case 'now':
@@ -163,9 +164,13 @@ export function ReviewGoLiveStep({ data, onNext, onBack }: ReviewGoLiveStepProps
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Back to schedule
                 </Button>
-                <Button onClick={onNext} className="flex-1 bg-gradient-primary hover:bg-gradient-primary/90">
+                <Button 
+                  onClick={onNext} 
+                  disabled={isLoading}
+                  className="flex-1 bg-gradient-primary hover:bg-gradient-primary/90"
+                >
                   <Play className="h-4 w-4 mr-2" />
-                  Go live & trigger calls
+                  {isLoading ? "Creating calls..." : "Go live & trigger calls"}
                 </Button>
               </div>
             </div>

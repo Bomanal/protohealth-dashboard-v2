@@ -147,7 +147,7 @@ async def upload_protocol_data(
             )
         
         # Trigger Celery task
-        task = parse_protocol.delay(protocol.protocol_id, file_content_str)
+        task = parse_protocol.delay(protocol.protocol_internal_id, file_content_str)
         
         # Update protocol status and store task_id
         protocol.status = 'PROCESSING'
@@ -157,6 +157,7 @@ async def upload_protocol_data(
         protocol.extra['celery_task_id'] = task.id
         protocol.extra['upload_timestamp'] = time.time()
         protocol.extra['uploaded_filename'] = file.filename
+        protocol.extra['protocol_id'] = protocol.protocol_id  # Store for easy lookup
         
         db.commit()
         

@@ -18,6 +18,7 @@ class CaseListItem(BaseModel):
     status: Optional[str]
     preliminary_diagnosis: Optional[str]
     triage_outcome: Optional[str]
+    dob: Optional[datetime.date]
     
 
     class Config:
@@ -34,8 +35,10 @@ def get_case_list(db: Session = Depends(get_db)):
             models.Conversations.conversation_status.label("status"),
             models.TriageOutcomes.final_condition.label("preliminary_diagnosis"),
             models.TriageOutcomes.triage_outcome.label("triage_outcome"),
+            models.InitialAssessments.dob.label("dob"),
         )
         .outerjoin(models.TriageOutcomes, models.Conversations.session_id == models.TriageOutcomes.session_id)
+        .outerjoin(models.InitialAssessments, models.Conversations.session_id == models.InitialAssessments.session_id)
         .all()
     )
     return results 

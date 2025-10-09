@@ -15,6 +15,8 @@ interface UploadProtocolStepProps {
 
 export function UploadProtocolStep({ data, onUpdate, onNext, onBack }: UploadProtocolStepProps) {
   const [dragActive, setDragActive] = useState(false)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [processingStatus, setProcessingStatus] = useState('')
   const { uploadProtocolData, loading, error } = useProtocolEngine()
 
 
@@ -53,22 +55,56 @@ export function UploadProtocolStep({ data, onUpdate, onNext, onBack }: UploadPro
   const handleNext = async () => {
     if (data.uploadedFile && data.protocol_internal_id) {
       try {
-        // Upload protocol data via API
+        setIsProcessing(true)
+        setProcessingStatus('Uploading file...')
+        
         const response = await uploadProtocolData(data.protocol_internal_id, data.uploadedFile)
         
-        // Update protocol data with task_id
         onUpdate({ 
           uploadMethod: 'file',
           task_id: response.task_id
         })
         
+        setProcessingStatus('Processing protocol with AI...')
+        await pollForCompletion(data.protocol_internal_id)
+        
+        setProcessingStatus('Processing complete!')
         onNext()
       } catch (err) {
         console.error('Failed to upload protocol data:', err)
-        // Error is handled by the hook
+        setProcessingStatus('Processing failed')
+      } finally {
+        setIsProcessing(false)
       }
-
     }
+  }
+
+  const pollForCompletion = async (protocolInternalId: string) => {
+    const maxAttempts = 120 // 10 minutes max wait (120 attempts * 5 seconds = 600 seconds = 10 minutes)
+    let attempts = 0
+    
+    while (attempts < maxAttempts) {
+      try {
+        const response = await fetch(`/protocol_engine/status/${protocolInternalId}`)
+        const statusData = await response.json()
+        
+        if (statusData.protocol_status === 'COMPLETED') {
+          console.log('Protocol processing completed successfully')
+          return
+        } else if (statusData.protocol_status === 'FAILED') {
+          throw new Error('Protocol processing failed')
+        }
+        
+        // Wait 5 seconds before next poll
+        await new Promise(resolve => setTimeout(resolve, 5000))
+        attempts++
+      } catch (err) {
+        console.error('Error polling status:', err)
+        throw err
+      }
+    }
+    
+    throw new Error('Protocol processing timed out after 10 minutes')
   }
 
   return (

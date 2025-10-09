@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { ArrowLeft, Check } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 import { IdentifyPatientsStep } from "./outbound-wizard/IdentifyPatientsStep"
 import { ScheduleCallStep } from "./outbound-wizard/ScheduleCallStep" 
@@ -34,7 +35,9 @@ const STEPS = [
 
 export function TriggerOutboundCallsWizard() {
   const navigate = useNavigate()
+  const { toast } = useToast()
   const [currentStep, setCurrentStep] = useState(1)
+  const [isLoading, setIsLoading] = useState(false)
   const [callData, setCallData] = useState<OutboundCallData>({
     patients: [],
     schedulingOption: 'now'
@@ -52,9 +55,107 @@ export function TriggerOutboundCallsWizard() {
     }
   }
 
-  const handleComplete = () => {
-    // Trigger the outbound calls
-    navigate('/all-engagements')
+  const handleComplete = async () => {
+    setIsLoading(true)
+    try {
+      // Prepare patient data for API
+      const patientData = callData.patients.map(patient => ({
+        name: patient.name,
+        phone_number: patient.phoneNumber,
+        dob: patient.dob,
+        gender: patient.gender,
+        // Include per-patient call type so backend can set Procedure if selected_protocol is not provided
+        call_type: patient.callType || null,
+        medical_history: patient.medicalConditions || null,
+        patient_context: patient.additionalNotes || null
+      }))
+
+      // Prepare call data for API
+      const callRequest = {
+        patients: patientData,
+        scheduling_option: callData.schedulingOption,
+        custom_datetime: callData.customDateTime ? new Date(callData.customDateTime).toISOString() : null,
+        selected_protocol: callData.selectedProtocol || null
+      }
+
+      // Debug: log outbound payload for inspection
+      // Note: Contains patient PII; ensure logs are only used in development
+      // eslint-disable-next-line no-console
+      console.debug('[TriggerOutboundCalls] Outbound payload →', callRequest)
+
+      // Make API call to create outbound calls
+      const response = await fetch('/api/outbound-calls/batch', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(callRequest)
+      })
+
+      if (!response.ok) {
+        // Attempt to parse JSON; if fails, read as text to capture server error
+        let errorMessage = 'Failed to create outbound calls'
+        let parsed: any = null
+        try {
+          parsed = await response.json()
+        } catch (_) {
+          try {
+            const textBody = await response.text()
+            errorMessage = textBody || errorMessage
+          } catch (_) {
+            // ignore
+          }
+        }
+
+        // If parsed JSON has detail/errors, surface them
+        if (parsed) {
+          // eslint-disable-next-line no-console
+          console.error('[TriggerOutboundCalls] API error response →', parsed)
+          if (parsed.detail) {
+            errorMessage = typeof parsed.detail === 'string' ? parsed.detail : JSON.stringify(parsed.detail)
+          }
+        } else {
+          // eslint-disable-next-line no-console
+          console.error('[TriggerOutboundCalls] API error (non-JSON) →', errorMessage)
+        }
+
+        throw new Error(errorMessage)
+      }
+
+      const result = await response.json()
+
+      // Show success message
+      toast({
+        title: "Outbound calls created successfully!",
+        description: `${result.success_count} calls scheduled. ${result.failure_count} failed.`,
+      })
+
+      // If triggering now, redirect to provided call URL with context
+      if (callData.schedulingOption === 'now' && Array.isArray(result.successful_calls) && result.successful_calls.length > 0) {
+        const firstCall = result.successful_calls[0]
+        const params = new URLSearchParams()
+        if (firstCall?.call_id) params.set('call_id', String(firstCall.call_id))
+        if (firstCall?.patient_id) params.set('patient_id', String(firstCall.patient_id))
+        if (firstCall?.patient_name) params.set('patient_name', String(firstCall.patient_name))
+        if (firstCall?.procedure) params.set('procedure', String(firstCall.procedure))
+
+        const targetUrl = `https://proto1demo.daily.co/Xiz1bOdUqkvoHquji258${params.toString() ? `?${params.toString()}` : ''}`
+        window.open(targetUrl, '_blank', 'noopener,noreferrer')
+        return
+      }
+
+      // Otherwise go back to engagements page
+      navigate('/all-engagements')
+    } catch (error) {
+      console.error('Error creating outbound calls:', error)
+      toast({
+        title: "Error creating outbound calls",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
+        variant: "destructive"
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const updateCallData = (updates: Partial<OutboundCallData>) => {
@@ -88,6 +189,7 @@ export function TriggerOutboundCallsWizard() {
             data={callData}
             onNext={handleComplete}
             onBack={handleBack}
+            isLoading={isLoading}
           />
         )
       default:

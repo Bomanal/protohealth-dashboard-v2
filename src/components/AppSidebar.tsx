@@ -9,7 +9,8 @@ import {
   Eye,
   ChevronDown,
   ChevronRight,
-  BarChart3
+  BarChart3,
+  Activity
 } from "lucide-react"
 import { NavLink, useLocation, Link } from "react-router-dom"
 
@@ -40,6 +41,7 @@ const patientInteractionsItems = [
   { title: "Needs Action", url: "/needs-action", icon: AlertTriangle },
   { title: "View All Engagements", url: "/all-engagements", icon: Eye },
   { title: "Trigger Outbound Calls", url: "/trigger-outbound-calls", icon: Send },
+  { title: "Visualize Inbound", url: "/visualize-inbound", icon: Activity },
 ]
 
 export function AppSidebar() {

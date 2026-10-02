@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { protocolService, type MatrixEdit } from "@/hooks/useProtocolEngine"
 
 /** Shape returned by GET /protocol/{id}/table-data (src/api/create_protocol.py). */
 export interface ProtocolThreadRow {
   thread_id: string
   final_condition: string | null
   triage_outcome: string | null
+  /** emergency | urgent | routine | self_care */
+  urgency: string | null
   /** true = accepted, false = rejected, null = not yet reviewed */
   acceptance: boolean | null
   values: Record<string, string>
@@ -12,6 +15,10 @@ export interface ProtocolThreadRow {
 
 export interface ProtocolTableData {
   protocol_id: string
+  /** DRAFT / APPROVED, projected from the protocol service */
+  status: string | null
+  version: number | null
+  version_id: string | null
   questions: Record<string, string> // node_id -> question
   threads: ProtocolThreadRow[]
 }
@@ -20,13 +27,6 @@ interface PendingNodeChange {
   thread_id: string
   node_id: string
   node_value: string
-}
-
-interface BatchResultItem {
-  type: "node_update" | "acceptance_update"
-  error?: string
-  data?: { thread_id?: string; node_id?: string }
-  result?: { thread_id?: string; node_id?: string }
 }
 
 export interface SaveOutcome {
@@ -81,7 +81,9 @@ export function useProtocolMatrix(protocolId: string | null) {
       if (requestId !== requestIdRef.current) return
       setTableData({
         ...data,
-        threads: data.threads.map(t => ({ ...t, acceptance: t.acceptance ?? null, values: t.values ?? {} })),
+        threads: data.threads.map(t => ({
+          ...t, acceptance: t.acceptance ?? null, urgency: t.urgency ?? null, values: t.values ?? {},
+        })),
       })
     } catch (err) {
       if (requestId !== requestIdRef.current) return
@@ -145,99 +147,32 @@ export function useProtocolMatrix(protocolId: string | null) {
 
   const pendingCount = Object.keys(pendingNodeChanges).length + Object.keys(pendingAcceptanceChanges).length
 
+  /** Save pending edits as a new draft version (protocol service); the matrix is re-projected and reloaded. */
   const save = useCallback(async (): Promise<SaveOutcome> => {
     if (!protocolId) return { ok: false, saved: 0, failed: 0, message: "No protocol selected" }
-    const nodeUpdates = Object.values(pendingNodeChanges)
-    const acceptanceUpdates = Object.entries(pendingAcceptanceChanges).map(([thread_id, acceptance]) => ({ thread_id, acceptance }))
-    if (nodeUpdates.length + acceptanceUpdates.length === 0) return { ok: true, saved: 0, failed: 0 }
-
+    const edits: MatrixEdit[] = [
+      ...Object.values(pendingNodeChanges).map(u => ({
+        op: "set_finding" as const, thread_id: u.thread_id, node_id: u.node_id, value: u.node_value.trim(),
+      })),
+      // Accept = reviewed (needs_review false); Reject keeps the thread flagged for review
+      ...Object.entries(pendingAcceptanceChanges).map(([thread_id, acceptance]) => ({
+        op: "set_thread" as const, thread_id, field: "needs_review" as const, value: !acceptance,
+      })),
+    ]
+    if (edits.length === 0) return { ok: true, saved: 0, failed: 0 }
     setIsSaving(true)
     try {
-      const response = await fetch(`/protocol/${encodeURIComponent(protocolId)}/batch-update`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ node_updates: nodeUpdates, acceptance_updates: acceptanceUpdates }),
-      })
-
-      if (!response.ok) {
-        let message = `Save failed (HTTP ${response.status}); no changes were saved`
-        try {
-          const body = await response.json()
-          if (typeof body?.detail === "string") message = body.detail
-        } catch {
-          // ignore non-JSON body
-        }
-        return { ok: false, saved: 0, failed: nodeUpdates.length + acceptanceUpdates.length, message }
-      }
-
-      const body = await response.json()
-      const results: BatchResultItem[] = Array.isArray(body?.batch_results) ? body.batch_results : []
-      const failedNodeKeys = new Set<string>()
-      const failedAcceptance = new Set<string>()
-      const errors: Record<string, string> = {}
-      for (const r of results) {
-        if (!r.error) continue
-        const threadId = r.data?.thread_id
-        if (!threadId) continue
-        if (r.type === "node_update" && r.data?.node_id) {
-          const key = nodeKey(threadId, r.data.node_id)
-          failedNodeKeys.add(key)
-          errors[key] = r.error
-        } else if (r.type === "acceptance_update") {
-          failedAcceptance.add(threadId)
-          errors[acceptanceKey(threadId)] = r.error
-        }
-      }
-
-      // Only clear changes that were saved and haven't been edited again since the request was sent
-      setPendingNodeChanges(prev => {
-        const next = { ...prev }
-        for (const u of nodeUpdates) {
-          const key = nodeKey(u.thread_id, u.node_id)
-          if (!failedNodeKeys.has(key) && next[key]?.node_value === u.node_value) delete next[key]
-        }
-        return next
-      })
-      setPendingAcceptanceChanges(prev => {
-        const next = { ...prev }
-        for (const u of acceptanceUpdates) {
-          if (!failedAcceptance.has(u.thread_id) && next[u.thread_id] === u.acceptance) delete next[u.thread_id]
-        }
-        return next
-      })
-      // Saved acceptance values become the new baseline
-      const savedAcceptance = new Map(
-        acceptanceUpdates.filter(u => !failedAcceptance.has(u.thread_id)).map(u => [u.thread_id, u.acceptance])
-      )
-      if (savedAcceptance.size > 0) {
-        setTableData(prev => prev && {
-          ...prev,
-          threads: prev.threads.map(t =>
-            savedAcceptance.has(t.thread_id) ? { ...t, acceptance: savedAcceptance.get(t.thread_id)! } : t
-          ),
-        })
-      }
-      setItemErrors(errors)
-
-      const failed = failedNodeKeys.size + failedAcceptance.size
-      const saved = nodeUpdates.length + acceptanceUpdates.length - failed
-      return {
-        ok: failed === 0,
-        saved,
-        failed,
-        message: failed > 0 ? `${failed} change(s) could not be saved and are still pending` : undefined,
-      }
+      await protocolService.saveDraft(protocolId, edits)
+      resetPending()
+      await reload()
+      return { ok: true, saved: edits.length, failed: 0 }
     } catch (err) {
-      return {
-        ok: false,
-        saved: 0,
-        failed: nodeUpdates.length + acceptanceUpdates.length,
-        message: err instanceof Error ? err.message : "Save failed",
-      }
+      const message = err instanceof Error ? err.message : "Save failed"
+      return { ok: false, saved: 0, failed: edits.length, message: `${message}. No changes were saved.` }
     } finally {
       setIsSaving(false)
     }
-  }, [protocolId, pendingNodeChanges, pendingAcceptanceChanges])
+  }, [protocolId, pendingNodeChanges, pendingAcceptanceChanges, reload, resetPending])
 
   const discard = useCallback(() => {
     resetPending()

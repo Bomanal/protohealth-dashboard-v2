@@ -1,48 +1,63 @@
-import { useState } from 'react'
-
-interface CreateProtocolRequest {
-  protocol_internal_id: string
-  protocol_name?: string
-  protocol_description?: string
-}
-
-interface CreateProtocolResponse {
-  protocol_id: string
-  protocol_internal_id: string
-  protocol_name?: string
-  protocol_description?: string
-  message: string
-}
-
-interface UploadProtocolResponse {
-  protocol_id: string
-  protocol_internal_id: string
-  task_id: string
-  message: string
-}
-
-interface ProtocolStatusResponse {
-  protocol_internal_id: string
-  protocol_id: string
-  protocol_name: string
-  protocol_status: string
-  task_status: unknown
-}
+import { useCallback, useState } from 'react'
 
 /**
- * Thrown when the backend reports HTTP 501 for /protocol_engine/* — protocol upload is
- * disabled until the triage_protocols_list schema migration lands
- * (see PROTOCOL_UPLOAD_ENABLED in src/api/protocol_engine.py).
+ * Client for the backend protocol service (proxied by the dashboard API at /svc, see
+ * src/api/protocol_service_proxy.py). The service owns upload -> generation -> draft versions -> approval;
+ * calls only ever run an approved version.
  */
-export class ProtocolEngineDisabledError extends Error {
-  constructor(message: string) {
-    super(message)
-    this.name = 'ProtocolEngineDisabledError'
-  }
+
+export type ProtocolKind = 'inbound' | 'outbound'
+export type VersionStatus = 'processing' | 'failed' | 'draft' | 'approved' | 'archived'
+
+export interface VersionSummary {
+  version_id: string
+  version: number
+  status: VersionStatus
+  created_at: string | null
+  created_by: string | null
+  reviewed_by: string | null
+  reviewed_at: string | null
+  source_filename: string | null
+  error: string | null
+  validation_errors: string[] | null
 }
 
-export const PROTOCOL_UPLOAD_DISABLED_MESSAGE =
-  'Protocol upload is temporarily disabled pending schema migration'
+export interface ProtocolSummary {
+  protocol_id: string
+  kind: ProtocolKind
+  name: string
+  title: string | null
+  procedure_type: string | null
+  active_version: VersionSummary | null
+  latest_version: VersionSummary | null
+}
+
+export interface ProtocolDetail extends ProtocolSummary {
+  versions: VersionSummary[]
+  editable_version: VersionSummary | null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  bundle: Record<string, any> | null
+}
+
+export interface UploadInput {
+  file: File
+  kind: ProtocolKind
+  name: string
+  procedureType?: string
+  createdBy?: string
+}
+
+export interface UploadResult {
+  protocol_id: string
+  version_id: string
+  status: VersionStatus
+}
+
+export type MatrixEdit =
+  | { op: 'set_finding'; thread_id: string; node_id: string; value: string }
+  | { op: 'set_thread'; thread_id: string; field: 'urgency' | 'disposition' | 'home_care' | 'condition' | 'needs_review'; value: string | boolean }
+  | { op: 'set_node'; node_id: string; field: 'name' | 'question' | 'category'; value: string }
+  | { op: 'delete_thread'; thread_id: string }
 
 /** Convert a non-OK response into an Error, tolerating non-JSON bodies. */
 async function toError(response: Response, fallback: string): Promise<Error> {
@@ -50,105 +65,89 @@ async function toError(response: Response, fallback: string): Promise<Error> {
   try {
     const body = await response.json()
     if (typeof body?.detail === 'string') detail = body.detail
+    else if (Array.isArray(body?.detail)) detail = body.detail.map((d: { msg?: string }) => d.msg).join('; ')
   } catch {
     // non-JSON body
   }
-  if (response.status === 501) {
-    return new ProtocolEngineDisabledError(detail || PROTOCOL_UPLOAD_DISABLED_MESSAGE)
-  }
+  if (response.status === 502) return new Error(detail || 'The protocol service is not reachable')
   return new Error(detail || `${fallback} (HTTP ${response.status})`)
 }
 
-export function useProtocolEngine() {
+async function svc<T>(path: string, init: RequestInit | undefined, fallback: string): Promise<T> {
+  const response = await fetch(`/svc/${path}`, init)
+  if (!response.ok) throw await toError(response, fallback)
+  return (await response.json()) as T
+}
+
+export const protocolService = {
+  upload(input: UploadInput) {
+    const form = new FormData()
+    form.append('file', input.file)
+    form.append('kind', input.kind)
+    form.append('name', input.name)
+    if (input.procedureType) form.append('procedure_type', input.procedureType)
+    if (input.createdBy) form.append('created_by', input.createdBy)
+    return svc<UploadResult>('protocols/upload', { method: 'POST', body: form }, 'Upload failed')
+  },
+  list(kind?: ProtocolKind) {
+    return svc<ProtocolSummary[]>(`protocols${kind ? `?kind=${kind}` : ''}`, undefined, 'Could not load protocols')
+  },
+  get(protocolId: string) {
+    return svc<ProtocolDetail>(`protocols/${encodeURIComponent(protocolId)}`, undefined, 'Could not load protocol')
+  },
+  version(protocolId: string, versionId: string) {
+    return svc<VersionSummary & { bundle: Record<string, unknown> | null }>(
+      `protocols/${encodeURIComponent(protocolId)}/versions/${versionId}`, undefined, 'Could not load version')
+  },
+  saveDraft(protocolId: string, edits: MatrixEdit[]) {
+    return svc<VersionSummary>(`protocols/${encodeURIComponent(protocolId)}/draft`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ edits }),
+    }, 'Save failed')
+  },
+  approve(protocolId: string, versionId: string, reviewer: string) {
+    return svc<VersionSummary>(`protocols/${encodeURIComponent(protocolId)}/versions/${versionId}/approve`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reviewer }),
+    }, 'Approval failed')
+  },
+}
+
+/** Poll a version until generation finishes (draft) or fails; throws on failure or timeout. */
+export async function waitForGeneration(
+  protocolId: string,
+  versionId: string,
+  onTick?: (elapsedSeconds: number) => void,
+  timeoutSeconds = 900,
+): Promise<VersionSummary> {
+  const started = Date.now()
+  for (;;) {
+    const version = await protocolService.version(protocolId, versionId)
+    if (version.status === 'failed') {
+      const details = version.validation_errors?.length ? `: ${version.validation_errors.join('; ')}` : ''
+      throw new Error(`Protocol generation failed - ${version.error ?? 'unknown error'}${details}`)
+    }
+    if (version.status !== 'processing') return version
+    const elapsed = Math.round((Date.now() - started) / 1000)
+    if (elapsed > timeoutSeconds) throw new Error('Protocol generation timed out')
+    onTick?.(elapsed)
+    await new Promise(resolve => setTimeout(resolve, 4000))
+  }
+}
+
+/** Small wrapper adding loading/error state around one async protocol-service action. */
+export function useProtocolAction() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [disabled, setDisabled] = useState(false)
-
-  const handleError = (err: unknown) => {
-    const errorMessage = err instanceof Error ? err.message : 'An error occurred'
-    setError(errorMessage)
-    if (err instanceof ProtocolEngineDisabledError) setDisabled(true)
-  }
-
-  const createProtocol = async (data: CreateProtocolRequest): Promise<CreateProtocolResponse> => {
+  const run = useCallback(async <T,>(action: () => Promise<T>): Promise<T | undefined> => {
     setLoading(true)
     setError(null)
-    
     try {
-      const response = await fetch('/protocol_engine/create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      })
-
-      if (!response.ok) {
-        throw await toError(response, 'Failed to create protocol')
-      }
-
-      return await response.json()
+      return await action()
     } catch (err) {
-      handleError(err)
-      throw err
+      setError(err instanceof Error ? err.message : 'Something went wrong')
+      return undefined
     } finally {
       setLoading(false)
     }
-  }
-
-  const uploadProtocolData = async (protocolInternalId: string, file: File): Promise<UploadProtocolResponse> => {
-    setLoading(true)
-    setError(null)
-    
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
-
-      const response = await fetch(`/protocol_engine/upload/${protocolInternalId}`, {
-        method: 'POST',
-        body: formData,
-      })
-
-      if (!response.ok) {
-        throw await toError(response, 'Failed to upload protocol data')
-      }
-
-      return await response.json()
-    } catch (err) {
-      handleError(err)
-      throw err
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const getProtocolStatus = async (protocolInternalId: string): Promise<ProtocolStatusResponse> => {
-    setLoading(true)
-    setError(null)
-    
-    try {
-      const response = await fetch(`/protocol_engine/status/${protocolInternalId}`)
-
-      if (!response.ok) {
-        throw await toError(response, 'Failed to get protocol status')
-      }
-
-      return await response.json()
-    } catch (err) {
-      handleError(err)
-      throw err
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return {
-    createProtocol,
-    uploadProtocolData,
-    getProtocolStatus,
-    loading,
-    error,
-    /** True once the backend has reported that protocol upload is disabled (HTTP 501). */
-    disabled
-  }
-} 
+  }, [])
+  return { run, loading, error, setError }
+}

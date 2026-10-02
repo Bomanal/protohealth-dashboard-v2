@@ -24,7 +24,7 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: false,
         },
-        '/protocol_engine': {
+        '/svc': {
           target: API_BASE_URL,
           changeOrigin: true,
           secure: false,

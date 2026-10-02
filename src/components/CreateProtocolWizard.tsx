@@ -10,25 +10,24 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { CreateProtocolStep } from "./protocol-wizard/CreateProtocolStep"
 import { UploadProtocolStep } from "./protocol-wizard/UploadProtocolStep"
 import { VisualizeProtocolStep } from "./protocol-wizard/VisualizeProtocolStep"
+import type { ProtocolKind } from "@/hooks/useProtocolEngine"
 
 export interface ProtocolData {
+  kind: ProtocolKind
   name: string
-  description: string
-  specialty: string
-  entryPoint: string
-  uploadMethod?: 'file' | 'call-data'
+  /** Outbound only: the procedure this call protocol is for (e.g. "colonoscopy"). */
+  procedureType: string
+  reviewerName: string
   uploadedFile?: File
-  // API response fields
+  // Set by the protocol service after upload
   protocol_id?: string
-  protocol_internal_id?: string
-  task_id?: string
-
+  version_id?: string
 }
 
 const STEPS = [
   { id: 1, title: "Create Protocol", description: "Basic information" },
   { id: 2, title: "Upload Protocol", description: "Upload or import data" },
-  { id: 3, title: "Visualize Protocol", description: "Review decision tree" },
+  { id: 3, title: "Review & Approve", description: "Review the generated protocol" },
   { id: 4, title: "Review Simulations", description: "Test scenarios" },
   { id: 5, title: "Run Simulations", description: "Live testing" }
 ]
@@ -39,10 +38,10 @@ export function CreateProtocolWizard() {
   const navigate = useNavigate()
   const [currentStep, setCurrentStep] = useState(1)
   const [protocolData, setProtocolData] = useState<ProtocolData>({
+    kind: "inbound",
     name: "",
-    description: "",
-    specialty: "",
-    entryPoint: ""
+    procedureType: "",
+    reviewerName: "",
   })
 
   const handleNext = () => {
@@ -64,8 +63,8 @@ export function CreateProtocolWizard() {
     navigate('/inbound-triage')
   }
 
+  // Uploaded protocols are stored as draft versions by the protocol service; leaving keeps the draft.
   const handleSaveDraft = () => {
-    // Save as draft protocol
     navigate('/inbound-triage')
   }
 
@@ -132,7 +131,7 @@ export function CreateProtocolWizard() {
             </div>
             </div>
             <Button variant="outline" onClick={handleSaveDraft}>
-              Save as Draft
+              {protocolData.protocol_id ? "Keep as Draft & Exit" : "Exit"}
             </Button>
           </div>
         </div>

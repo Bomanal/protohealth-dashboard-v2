@@ -3,9 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ProtocolData } from "../CreateProtocolWizard"
 import { ArrowLeft, ArrowRight, Upload, FileText, Loader2 } from "lucide-react"
-import { useProtocolEngine, ProtocolEngineDisabledError } from "@/hooks/useProtocolEngine"
-import { ProtocolUploadDisabledNotice } from "./ProtocolUploadDisabledNotice"
-
+import { protocolService, waitForGeneration } from "@/hooks/useProtocolEngine"
 
 interface UploadProtocolStepProps {
   data: ProtocolData
@@ -14,96 +12,66 @@ interface UploadProtocolStepProps {
   onBack: () => void
 }
 
+const isValidFileType = (file: File) => /\.(txt|md)$/i.test(file.name)
+const MAX_BYTES = 500_000
+
 export function UploadProtocolStep({ data, onUpdate, onNext, onBack }: UploadProtocolStepProps) {
   const [dragActive, setDragActive] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
-  const [processingStatus, setProcessingStatus] = useState('')
-  const { uploadProtocolData, getProtocolStatus, loading, error, disabled } = useProtocolEngine()
+  const [processingStatus, setProcessingStatus] = useState("")
   const [stepError, setStepError] = useState<string | null>(null)
 
-
-  const handleFileUpload = (file: File) => {
-    onUpdate({ uploadedFile: file, uploadMethod: 'file' })
+  const handleFile = (file: File | undefined) => {
+    setStepError(null)
+    if (!file) return
+    if (!isValidFileType(file)) {
+      setStepError("Upload the protocol as a .txt or .md text file.")
+      return
+    }
+    if (file.size > MAX_BYTES) {
+      setStepError("The document is larger than 500 KB.")
+      return
+    }
+    onUpdate({ uploadedFile: file })
   }
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true)
-    } else if (e.type === "dragleave") {
-      setDragActive(false)
-    }
+    setDragActive(e.type === "dragenter" || e.type === "dragover")
   }
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
     setDragActive(false)
-    
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0]
-      if (isValidFileType(file)) {
-        handleFileUpload(file)
-      }
-    }
-  }
-
-  const isValidFileType = (file: File) => {
-    // Only allow .txt files for now as per API requirements
-    return file.name.endsWith('.txt') || file.type === 'text/plain'
+    handleFile(e.dataTransfer.files?.[0])
   }
 
   const handleNext = async () => {
-    setStepError(null)
     if (!data.uploadedFile) return
-    if (!data.protocol_internal_id) {
-      setStepError("This protocol hasn't been created yet. Go back to the previous step and create it first.")
-      return
-    }
+    setStepError(null)
+    setIsProcessing(true)
     try {
-      setIsProcessing(true)
-      setProcessingStatus('Uploading file...')
-
-      const response = await uploadProtocolData(data.protocol_internal_id, data.uploadedFile)
-
-      onUpdate({
-        uploadMethod: 'file',
-        task_id: response.task_id
+      setProcessingStatus("Uploading document...")
+      const upload = await protocolService.upload({
+        file: data.uploadedFile,
+        kind: data.kind,
+        name: data.name.trim(),
+        procedureType: data.kind === "outbound" ? data.procedureType.trim() : undefined,
       })
-
-      setProcessingStatus('Processing protocol with AI...')
-      await pollForCompletion(data.protocol_internal_id)
-
-      setProcessingStatus('Processing complete!')
+      onUpdate({ protocol_id: upload.protocol_id, version_id: upload.version_id })
+      setProcessingStatus("Generating the protocol from the document (this usually takes 1-3 minutes)...")
+      await waitForGeneration(upload.protocol_id, upload.version_id, (elapsed) =>
+        setProcessingStatus(`Generating the protocol from the document... ${elapsed}s`))
+      setProcessingStatus("Draft ready")
       onNext()
     } catch (err) {
-      setProcessingStatus('')
-      // Hook-level errors (HTTP failures, 501 disabled) are shown via `error`/`disabled`
-      if (!(err instanceof ProtocolEngineDisabledError)) {
-        setStepError(err instanceof Error ? err.message : 'Protocol processing failed')
-      }
+      setProcessingStatus("")
+      setStepError(err instanceof Error ? err.message : "Protocol processing failed")
     } finally {
       setIsProcessing(false)
     }
-  }
-
-  const pollForCompletion = async (protocolInternalId: string) => {
-    const maxAttempts = 120 // 10 minutes max wait (120 attempts * 5 seconds)
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      // getProtocolStatus throws on any non-OK response (incl. 501), which stops polling
-      const statusData = await getProtocolStatus(protocolInternalId)
-
-      if (statusData.protocol_status === 'COMPLETED') {
-        return
-      }
-      if (statusData.protocol_status === 'FAILED') {
-        throw new Error('Protocol processing failed')
-      }
-
-      await new Promise(resolve => setTimeout(resolve, 5000))
-    }
-    throw new Error('Protocol processing timed out after 10 minutes')
   }
 
   return (
@@ -112,116 +80,82 @@ export function UploadProtocolStep({ data, onUpdate, onNext, onBack }: UploadPro
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Upload className="h-5 w-5 text-primary" />
-            Upload Protocol Data
+            Upload the {data.kind === "inbound" ? "triage guideline" : "procedure protocol"}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="max-w-2xl mx-auto">
-            {/* File Upload Option */}
-            <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
-
-              <CardContent className="p-6">
-                <div className="text-center">
-                  <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Upload New Protocol</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Upload a protocol document (TXT files only)
-                  </p>
-
-                  <div className="space-y-4">
-                    <div
-                      className={`border-2 border-dashed rounded-lg p-6 transition-colors ${
-                        dragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25'
-                      }`}
-                      onDragEnter={handleDrag}
-                      onDragLeave={handleDrag}
-                      onDragOver={handleDrag}
-                      onDrop={handleDrop}
-                    >
-                      {data.uploadedFile ? (
-                        <div className="text-center">
-                          <FileText className="h-8 w-8 text-success mx-auto mb-2" />
-                          <p className="font-medium">{data.uploadedFile.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {(data.uploadedFile.size / 1024 / 1024).toFixed(2)} MB
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="text-center">
-                          <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                          <p>Drag and drop your file here, or click to browse</p>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            Supports TXT files only
-                          </p>
-                        </div>
-                      )}
-                    </div>
-
-                    <input
-                      type="file"
-                      id="file-upload"
-                      className="hidden"
-                      accept=".txt"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0]
-                        if (file && isValidFileType(file)) {
-                          handleFileUpload(file)
-                        }
-                      }}
-                    />
-                    
-                    <Button
-                      variant="outline"
-                      onClick={() => document.getElementById('file-upload')?.click()}
-                      className="w-full"
-                    >
-                      Choose File
-                    </Button>
-                  </div>
-
+          <div className="max-w-2xl mx-auto text-center">
+            <p className="text-muted-foreground mb-4">
+              {data.kind === "inbound"
+                ? "The guideline is converted into decision threads (one per clinical criterion, each with an urgency) and saved as a draft for review."
+                : "The protocol is converted into the call script: items read word for word, medication hold times and edge cases, saved as a draft for review."}
+            </p>
+            <div
+              className={`border-2 border-dashed rounded-lg p-6 transition-colors ${
+                dragActive ? "border-primary bg-primary/5" : "border-muted-foreground/25"
+              }`}
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+            >
+              {data.uploadedFile ? (
+                <div>
+                  <FileText className="h-8 w-8 text-success mx-auto mb-2" />
+                  <p className="font-medium">{data.uploadedFile.name}</p>
+                  <p className="text-sm text-muted-foreground">{(data.uploadedFile.size / 1024).toFixed(1)} KB</p>
                 </div>
-              </CardContent>
-            </Card>
+              ) : (
+                <div>
+                  <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                  <p>Drag and drop your file here, or choose a file</p>
+                  <p className="text-sm text-muted-foreground mt-1">.txt or .md, up to 500 KB</p>
+                </div>
+              )}
+            </div>
+            <input
+              type="file"
+              id="file-upload"
+              className="hidden"
+              accept=".txt,.md"
+              onChange={(e) => handleFile(e.target.files?.[0])}
+            />
+            <Button variant="outline" onClick={() => document.getElementById("file-upload")?.click()}
+                    className="w-full mt-4" disabled={isProcessing}>
+              Choose File
+            </Button>
           </div>
 
-          <div className="space-y-4">
-            {disabled ? (
-              <ProtocolUploadDisabledNotice message={error} />
-            ) : (stepError || error) && (
-              <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
-                <p className="text-sm text-destructive">{stepError || error}</p>
-              </div>
-            )}
-
-            {isProcessing && processingStatus && (
-              <p className="text-sm text-muted-foreground flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                {processingStatus}
-              </p>
-            )}
-            
-            <div className="flex justify-between pt-4">
-              <Button variant="outline" onClick={onBack} disabled={loading || isProcessing}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back
-              </Button>
-              <Button 
-                onClick={handleNext}
-                disabled={!data.uploadedFile || loading || isProcessing || disabled}
-              >
-                {loading || isProcessing ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    {processingStatus || 'Uploading...'}
-                  </>
-                ) : (
-                  <>
-                    Continue to Visualization
-                    <ArrowRight className="h-4 w-4 ml-2" />
-                  </>
-                )}
-              </Button>
+          {stepError && (
+            <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+              <p className="text-sm text-destructive whitespace-pre-wrap">{stepError}</p>
             </div>
+          )}
+          {isProcessing && processingStatus && (
+            <p className="text-sm text-muted-foreground flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              {processingStatus}
+            </p>
+          )}
+
+          <div className="flex justify-between pt-4">
+            <Button variant="outline" onClick={onBack} disabled={isProcessing}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back
+            </Button>
+            <Button onClick={handleNext} disabled={!data.uploadedFile || isProcessing}>
+              {isProcessing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  Upload and Generate
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </>
+              )}
+            </Button>
           </div>
         </CardContent>
       </Card>

@@ -31,6 +31,8 @@ class Conversations(Base):
     confirmation_retries: Mapped[Optional[int]] = mapped_column(Integer)
     conversation_status: Mapped[Optional[str]] = mapped_column(Text)
     user_name: Mapped[Optional[str]] = mapped_column(Text)
+    # Exact protocol version the call ran (protocol_versions.version_id); null for file-loaded protocols
+    protocol_version_id: Mapped[Optional[uuid.UUID]] = mapped_column(Uuid)
 
 
 class ConversationTranscripts(Base):
@@ -98,7 +100,67 @@ class TriageOutcomes(Base):
     final_message_to_user: Mapped[Optional[str]] = mapped_column(Text)
 
 
-# New tables based on the provided SQL schema
+# -----------------------------------------------------------------------------
+# Protocol store (source of truth for what calls run). The matrix tables below (triage_protocols_list,
+# protocol_threads, nodes, thread_node_values, thread_outcomes) are a read model projected from
+# protocol_versions.bundle for the dashboard's matrix editor.
+# -----------------------------------------------------------------------------
+
+class Protocols(Base):
+    __tablename__ = 'protocols'
+    __table_args__ = (
+        PrimaryKeyConstraint('protocol_id', name='protocols_pkey'),
+        CheckConstraint("kind IN ('inbound', 'outbound')", name='protocols_kind_check'),
+        Index('uq_protocols_procedure_type', 'procedure_type', unique=True,
+              postgresql_where=text('procedure_type IS NOT NULL')),
+    )
+
+    protocol_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    title: Mapped[Optional[str]] = mapped_column(Text)
+    procedure_type: Mapped[Optional[str]] = mapped_column(String(100))  # outbound lookup key
+    active_version_id: Mapped[Optional[uuid.UUID]] = mapped_column(Uuid)  # the approved version calls run
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class ProtocolVersions(Base):
+    __tablename__ = 'protocol_versions'
+    __table_args__ = (
+        PrimaryKeyConstraint('version_id', name='protocol_versions_pkey'),
+        ForeignKeyConstraint(['protocol_id'], ['protocols.protocol_id'], ondelete='CASCADE', name='fk_pv_protocol_id'),
+        UniqueConstraint('protocol_id', 'version', name='uq_protocol_versions_protocol_version'),
+        CheckConstraint("status IN ('processing', 'failed', 'draft', 'approved', 'archived')",
+                        name='protocol_versions_status_check'),
+        Index('idx_pv_protocol_id', 'protocol_id'),
+    )
+
+    version_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, server_default=text('gen_random_uuid()'))
+    protocol_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    bundle: Mapped[Optional[dict]] = mapped_column(JSONB)  # runtime format (inbound bundle / outbound protocol)
+    source_document: Mapped[Optional[str]] = mapped_column(Text)
+    source_filename: Mapped[Optional[str]] = mapped_column(String(255))
+    generator_model: Mapped[Optional[str]] = mapped_column(String(100))
+    validation_errors: Mapped[Optional[list]] = mapped_column(JSONB)
+    error: Mapped[Optional[str]] = mapped_column(Text)
+    created_by: Mapped[Optional[str]] = mapped_column(String(255))
+    reviewed_by: Mapped[Optional[str]] = mapped_column(String(255))
+    reviewed_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime)
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class AppSettings(Base):
+    __tablename__ = 'app_settings'
+    __table_args__ = (PrimaryKeyConstraint('key', name='app_settings_pkey'),)
+
+    key: Mapped[str] = mapped_column(String(100), primary_key=True)
+    value: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    updated_at: Mapped[datetime.datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+# Matrix tables (read model for the dashboard editor)
 
 class TriageProtocolsList(Base):
     __tablename__ = 'triage_protocols_list'
@@ -108,7 +170,7 @@ class TriageProtocolsList(Base):
         Index('idx_tpl_protocol_name', 'protocol_name')
     )
 
-    protocol_id: Mapped[str] = mapped_column(String(4), primary_key=True)
+    protocol_id: Mapped[str] = mapped_column(String(32), primary_key=True)
     protocol_name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     protocol_description: Mapped[str] = mapped_column(Text, nullable=False)
     # Used by the dashboard's protocol upload pipeline
@@ -128,8 +190,8 @@ class ProtocolThreads(Base):
         Index('idx_pt_protocol_id', 'protocol_id')
     )
 
-    thread_id: Mapped[str] = mapped_column(String(4), primary_key=True)
-    protocol_id: Mapped[str] = mapped_column(String(4), nullable=False)
+    thread_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    protocol_id: Mapped[str] = mapped_column(String(32), nullable=False)
     thread_criticality: Mapped[Optional[str]] = mapped_column(String(20))
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime, server_default=func.now())
 
@@ -149,7 +211,7 @@ class Nodes(Base):
         Index('idx_nodes_node_category', 'node_category')
     )
 
-    node_id: Mapped[str] = mapped_column(String(4), primary_key=True)
+    node_id: Mapped[str] = mapped_column(String(32), primary_key=True)
     question: Mapped[str] = mapped_column(Text, nullable=False)
     node_name: Mapped[str] = mapped_column(String(255), nullable=False)
     node_category: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -168,8 +230,8 @@ class ThreadNodeValues(Base):
         Index('idx_tnv_node_id', 'node_id')
     )
 
-    thread_id: Mapped[str] = mapped_column(String(4), primary_key=True)
-    node_id: Mapped[str] = mapped_column(String(4), primary_key=True)
+    thread_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    node_id: Mapped[str] = mapped_column(String(32), primary_key=True)
     node_value: Mapped[str] = mapped_column(Text, nullable=False)
 
     # Relationships
@@ -184,7 +246,7 @@ class ThreadOutcomes(Base):
         ForeignKeyConstraint(['thread_id'], ['protocol_threads.thread_id'], name='fk_to_thread_id')
     )
 
-    thread_id: Mapped[str] = mapped_column(String(4), primary_key=True)
+    thread_id: Mapped[str] = mapped_column(String(32), primary_key=True)
     triage_outcome: Mapped[Optional[str]] = mapped_column(Text)
     home_care_advice: Mapped[Optional[str]] = mapped_column(Text)
     final_condition: Mapped[Optional[str]] = mapped_column(Text)
@@ -206,7 +268,7 @@ class NodeValuesQuestionsJson(Base):
     )
 
     protocol_name_from_file: Mapped[str] = mapped_column(String(255), primary_key=True)
-    protocol_id: Mapped[str] = mapped_column(String(4), nullable=False)
+    protocol_id: Mapped[str] = mapped_column(String(32), nullable=False)
     json_data: Mapped[str] = mapped_column(Text, nullable=False) # Assuming this column holds the JSON data
 
 
@@ -222,8 +284,8 @@ class Personas(Base):
     )
 
     persona_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    assigned_thread_id: Mapped[str] = mapped_column(String(4), nullable=False)
-    protocol_id: Mapped[str] = mapped_column(String(4), nullable=False)
+    assigned_thread_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    protocol_id: Mapped[str] = mapped_column(String(32), nullable=False)
     final_condition: Mapped[str] = mapped_column(String(255), nullable=False)
     user_name: Mapped[str] = mapped_column(String(255), nullable=False)
     date_of_birth: Mapped[Optional[datetime.date]] = mapped_column(Date)

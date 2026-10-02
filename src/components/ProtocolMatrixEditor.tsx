@@ -10,6 +10,15 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
+import { Badge } from "@/components/ui/badge"
+import { ProtocolApprovalBar } from "@/components/protocol-wizard/ProtocolApprovalBar"
+
+const URGENCY_STYLE: Record<string, string> = {
+  emergency: "bg-red-100 text-red-800 border-red-200",
+  urgent: "bg-orange-100 text-orange-800 border-orange-200",
+  routine: "bg-blue-100 text-blue-800 border-blue-200",
+  self_care: "bg-green-100 text-green-800 border-green-200",
+}
 
 interface ProtocolOption {
   protocol_id: string
@@ -20,6 +29,8 @@ interface ProtocolOption {
 interface ProtocolMatrixEditorProps {
   /** Pick the protocol to select once the protocol list loads (return undefined for none). */
   autoSelect?: (protocols: ProtocolOption[]) => string | undefined
+  /** Called after a version is approved (made live). */
+  onApproved?: () => void
   onBack: () => void
   /** Called after the user confirms "Review and Save" and all pending changes saved successfully. */
   onConfirm?: () => void
@@ -32,12 +43,13 @@ interface ProtocolMatrixEditorProps {
  * accept/reject per thread. Used by the Visualize Protocol page and the
  * Create Protocol wizard.
  */
-export function ProtocolMatrixEditor({ autoSelect, onBack, onConfirm, confirmDescription }: ProtocolMatrixEditorProps) {
+export function ProtocolMatrixEditor({ autoSelect, onBack, onConfirm, confirmDescription, onApproved }: ProtocolMatrixEditorProps) {
   const { toast } = useToast()
   const { protocols, loading: loadingProtocols, error: protocolsError } = useProtocols()
   const [selectedProtocolId, setSelectedProtocolId] = useState<string | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  const [savedCount, setSavedCount] = useState(0) // bumps the approval bar after each save
 
   const matrix = useProtocolMatrix(selectedProtocolId)
   const { tableData, questionIds } = matrix
@@ -62,7 +74,8 @@ export function ProtocolMatrixEditor({ autoSelect, onBack, onConfirm, confirmDes
     const outcome = await matrix.save()
     if (outcome.ok) {
       if (outcome.saved > 0) {
-        toast({ title: "Changes saved", description: `${outcome.saved} change(s) saved.` })
+        setSavedCount(c => c + 1)
+        toast({ title: "Draft saved", description: `${outcome.saved} change(s) saved as a new draft version. Approve it to make it live.` })
       }
       return true
     }
@@ -125,6 +138,12 @@ export function ProtocolMatrixEditor({ autoSelect, onBack, onConfirm, confirmDes
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
+          <ProtocolApprovalBar
+            protocolId={selectedProtocolId}
+            refreshKey={savedCount}
+            pendingChanges={matrix.pendingCount}
+            onApproved={() => { matrix.reload(); onApproved?.() }}
+          />
           <Card className={isFullscreen ? "fixed inset-0 z-50 rounded-none" : ""}>
             <CardContent className={isFullscreen ? "p-6 h-full flex flex-col" : "p-6"}>
               {matrix.loading ? (
@@ -199,7 +218,7 @@ export function ProtocolMatrixEditor({ autoSelect, onBack, onConfirm, confirmDes
                               </TableHead>
                             ))}
                             <TableHead className="min-w-36 max-w-36 bg-muted/50">
-                              <div className="font-semibold text-center">Accept/Reject</div>
+                              <div className="font-semibold text-center">Clinician review</div>
                             </TableHead>
                           </TableRow>
                         </TableHeader>
@@ -216,7 +235,14 @@ export function ProtocolMatrixEditor({ autoSelect, onBack, onConfirm, confirmDes
                                     <div className="font-medium text-sm break-words">
                                       {thread.final_condition || "No condition specified"}
                                     </div>
-                                    <div className="text-xs text-muted-foreground">{thread.thread_id}</div>
+                                    <div className="flex items-center gap-2">
+                                      {thread.urgency && (
+                                        <Badge variant="outline" className={`text-[10px] ${URGENCY_STYLE[thread.urgency] ?? ""}`}>
+                                          {thread.urgency.replace("_", " ")}
+                                        </Badge>
+                                      )}
+                                      <span className="text-xs text-muted-foreground">{thread.thread_id}</span>
+                                    </div>
                                     <div className="text-xs text-blue-600 break-words">{thread.triage_outcome}</div>
                                   </div>
                                 </TableCell>
@@ -245,7 +271,7 @@ export function ProtocolMatrixEditor({ autoSelect, onBack, onConfirm, confirmDes
                                     title={accError}
                                     className={`w-full text-sm h-12 ${accError ? "ring-2 ring-destructive" : accPending ? "border-2 border-orange-400" : ""}`}
                                   >
-                                    {acceptance === true ? "Accept" : acceptance === false ? "Reject" : "Not reviewed"}
+                                    {acceptance === true ? "Reviewed" : acceptance === false ? "Needs review" : "Not reviewed"}
                                   </Button>
                                   {accError && <p className="text-xs text-destructive mt-1">{accError}</p>}
                                 </TableCell>
@@ -263,7 +289,7 @@ export function ProtocolMatrixEditor({ autoSelect, onBack, onConfirm, confirmDes
                         <div className="text-sm text-orange-800">
                           <strong>{matrix.pendingCount} unsaved changes</strong>
                           <p className="text-xs text-orange-600 mt-1">
-                            Changes are highlighted in orange. Click "Save All Changes" to persist them to the database.
+                            Changes are highlighted in orange. Saving creates a new draft version; calls keep using the live version until it is approved.
                           </p>
                           {errorCount > 0 && (
                             <p className="text-xs text-destructive mt-1">
@@ -304,7 +330,7 @@ export function ProtocolMatrixEditor({ autoSelect, onBack, onConfirm, confirmDes
             </Button>
             <Button onClick={() => setShowConfirmDialog(true)} disabled={!selectedProtocolId}>
               <Check className="h-4 w-4 mr-2" />
-              Review and Save
+              Save and Finish
             </Button>
           </div>
         </CardContent>
@@ -317,7 +343,7 @@ export function ProtocolMatrixEditor({ autoSelect, onBack, onConfirm, confirmDes
             <DialogDescription>
               {confirmDescription
                 ? confirmDescription(selectedProtocolName)
-                : `Save all pending changes to the "${selectedProtocolName}" protocol?`}
+                : `Save pending changes to "${selectedProtocolName}" as a draft? Calls use it only after it is approved.`}
               {matrix.pendingCount > 0 && (
                 <>
                   <br /><br />

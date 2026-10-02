@@ -1,6 +1,7 @@
 import { useCallback } from "react"
 import { ProtocolData } from "../CreateProtocolWizard"
 import { ProtocolMatrixEditor } from "@/components/ProtocolMatrixEditor"
+import { OutboundProtocolReview } from "./OutboundProtocolReview"
 
 interface VisualizeProtocolStepProps {
   data: ProtocolData
@@ -9,22 +10,22 @@ interface VisualizeProtocolStepProps {
 }
 
 export function VisualizeProtocolStep({ data, onNext, onBack }: VisualizeProtocolStepProps) {
-  // Auto-select the protocol created in the previous steps (matched by name)
+  // Select the protocol the upload step just generated
   const autoSelect = useCallback(
-    (protocols: { protocol_id: string; protocol_name: string; protocol_description: string }[]) => {
-      if (!data.name) return undefined
-      return protocols.find(p => p.protocol_name === data.name || p.protocol_description?.includes(data.name))?.protocol_id
-    },
-    [data.name]
+    (protocols: { protocol_id: string }[]) => protocols.find(p => p.protocol_id === data.protocol_id)?.protocol_id,
+    [data.protocol_id]
   )
 
+  if (data.kind === "outbound" && data.protocol_id) {
+    return <OutboundProtocolReview protocolId={data.protocol_id} onBack={onBack} onDone={onNext} />
+  }
   return (
     <ProtocolMatrixEditor
       autoSelect={autoSelect}
       onBack={onBack}
       onConfirm={onNext}
       confirmDescription={(name) =>
-        `Save "${data.name || name}" protocol? This will make it available for patient triage.`
+        `Save pending changes to "${data.name || name}" as a draft? Patient calls use the protocol only after a clinician approves it.`
       }
     />
   )

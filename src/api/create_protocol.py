@@ -12,6 +12,8 @@ class ProtocolNameItem(BaseModel):
     protocol_id: str
     protocol_name: str
     protocol_description: str
+    status: Optional[str] = None  # DRAFT / APPROVED (projected by the protocol service)
+    version: Optional[int] = None
 
 class FinalOutcomeItem(BaseModel):
     thread_id: str
@@ -44,8 +46,11 @@ def get_protocol_names(db: Session = Depends(get_db)):
         db.query(
             models.TriageProtocolsList.protocol_id,
             models.TriageProtocolsList.protocol_name,
-            models.TriageProtocolsList.protocol_description
+            models.TriageProtocolsList.protocol_description,
+            models.TriageProtocolsList.status,
+            models.TriageProtocolsList.extra,
         )
+        .order_by(models.TriageProtocolsList.protocol_id)
         .all()
     )
     
@@ -53,7 +58,9 @@ def get_protocol_names(db: Session = Depends(get_db)):
         ProtocolNameItem(
             protocol_id=result.protocol_id,
             protocol_name=result.protocol_name,
-            protocol_description=result.protocol_description
+            protocol_description=result.protocol_description,
+            status=result.status,
+            version=(result.extra or {}).get("version"),
         )
         for result in results
     ]
@@ -209,6 +216,7 @@ def get_protocol_table_data(protocol_id: str, db: Session = Depends(get_db)):
     results = (
         db.query(
             models.ProtocolThreads.thread_id,
+            models.ProtocolThreads.thread_criticality,
             models.ThreadOutcomes.final_condition,
             models.ThreadOutcomes.triage_outcome,
             models.ThreadOutcomes.acceptance,
@@ -249,15 +257,24 @@ def get_protocol_table_data(protocol_id: str, db: Session = Depends(get_db)):
                 "thread_id": row.thread_id,
                 "final_condition": row.final_condition,
                 "triage_outcome": row.triage_outcome,
+                # emergency / urgent / routine / self_care
+                "urgency": row.thread_criticality,
                 # True = accepted, False = rejected, None = not yet reviewed
                 "acceptance": row.acceptance,
                 "values": {}
             }
         threads[row.thread_id]["values"][row.node_id] = row.node_value
     
+    listing = db.query(models.TriageProtocolsList).filter(models.TriageProtocolsList.protocol_id == protocol_id).first()
+    extra = (listing.extra or {}) if listing else {}
+    urgency_order = {"emergency": 0, "urgent": 1, "routine": 2, "self_care": 3}
     return {
         "protocol_id": protocol_id,
+        "status": listing.status if listing else None,
+        "version": extra.get("version"),
+        "version_id": extra.get("version_id"),
         "questions": questions,  # {node_id: question}
-        "threads": list(threads.values())  # List of threads with their values
+        # most urgent first, then thread id
+        "threads": sorted(threads.values(), key=lambda t: (urgency_order.get(t["urgency"] or "", 9), t["thread_id"])),
     }
 

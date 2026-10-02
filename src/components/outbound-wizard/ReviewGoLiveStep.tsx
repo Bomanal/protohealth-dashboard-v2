@@ -90,7 +90,7 @@ export function ReviewGoLiveStep({ data, onNext, onBack, isLoading = false }: Re
                   <div key={callType} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                     <span className="font-medium">{callType}</span>
                     <Badge variant="secondary">
-                      Protocol: {callType.replace(/\s+/g, '_').toLowerCase()}
+                      Protocol: {callType}
                     </Badge>
                   </div>
                 ))}

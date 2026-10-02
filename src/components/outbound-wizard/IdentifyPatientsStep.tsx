@@ -13,6 +13,7 @@ import { OutboundCallData, PatientData } from "../TriggerOutboundCallsWizard"
 import { ArrowRight, Upload, Plus, Trash2, Info, X, AlertCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { parseCsv, digitsOnly } from "@/lib/csv"
+import { matchProcedure, useOutboundProcedures } from "@/hooks/useOutboundProcedures"
 
 interface IdentifyPatientsStepProps {
   data: OutboundCallData
@@ -20,24 +21,18 @@ interface IdentifyPatientsStepProps {
   onNext: () => void
 }
 
-const CALL_TYPES = [
-  "Post-surgery follow-up",
-  "Appointment reminder", 
-  "Test results review",
-  "Medication check",
-  "Wellness check",
-  "Insurance verification"
-]
-
 const GENDERS = ["Male", "Female", "Other"]
 
 // CSV columns: header row is required. Optional columns may be omitted.
-const CSV_REQUIRED_COLUMNS = ["name", "phone_number", "dob", "gender", "call_type"] as const
+const CSV_REQUIRED_COLUMNS = ["name", "phone_number", "dob", "gender", "call_type", "procedure_date"] as const
 const CSV_OPTIONAL_COLUMNS = ["medical_history", "patient_context"] as const
 const MAX_CSV_BYTES = 1024 * 1024 // 1 MB
 
 export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatientsStepProps) {
   const { toast } = useToast()
+  // Call types are the outbound procedures that have a call protocol (protocol service)
+  const { procedures, error: proceduresError } = useOutboundProcedures()
+  const procedureLabel = (value: string) => procedures.find(p => p.value === value)?.label ?? value
   const [activeTab, setActiveTab] = useState("manual")
   const [currentPatient, setCurrentPatient] = useState<PatientData>({
     name: "",
@@ -45,6 +40,7 @@ export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatient
     gender: "",
     phoneNumber: "",
     callType: "",
+    procedureDate: "",
     medicalConditions: "",
     additionalNotes: ""
   })
@@ -84,7 +80,13 @@ export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatient
     }
     
     if (!patient.callType) {
-      errors.callType = "Call type is required"
+      errors.callType = "Procedure is required"
+    }
+
+    if (!patient.procedureDate) {
+      errors.procedureDate = "Procedure date is required"
+    } else if (!/^\d{4}-\d{2}-\d{2}$/.test(patient.procedureDate) || Number.isNaN(new Date(patient.procedureDate).getTime())) {
+      errors.procedureDate = "Procedure date must be a valid date (YYYY-MM-DD)"
     }
     
     return errors
@@ -112,6 +114,7 @@ export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatient
       gender: "",
       phoneNumber: "",
       callType: "",
+      procedureDate: "",
       medicalConditions: "",
       additionalNotes: ""
     })
@@ -216,7 +219,7 @@ export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatient
       const rawGender = col(row, "gender")
       const gender = GENDERS.find(g => g.toLowerCase() === rawGender.toLowerCase()) ?? rawGender
       const rawCallType = col(row, "call_type")
-      const callType = CALL_TYPES.find(t => t.toLowerCase() === rawCallType.toLowerCase()) ?? rawCallType
+      const callType = matchProcedure(procedures, rawCallType)?.value ?? rawCallType
       const patient: PatientData = {
         id: `csv-${Date.now()}-${rowNumber}`,
         name: col(row, "name"),
@@ -224,6 +227,7 @@ export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatient
         dob: col(row, "dob"),
         gender,
         callType,
+        procedureDate: col(row, "procedure_date"),
         medicalConditions: col(row, "medical_history"),
         additionalNotes: col(row, "patient_context"),
       }
@@ -237,8 +241,8 @@ export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatient
       if (patient.gender && !GENDERS.includes(patient.gender)) {
         rowErrors.push(`Invalid gender "${rawGender}" (expected ${GENDERS.join(", ")})`)
       }
-      if (patient.callType && !CALL_TYPES.includes(patient.callType)) {
-        rowErrors.push(`Invalid call type "${rawCallType}"`)
+      if (patient.callType && !procedures.some(p => p.value === patient.callType)) {
+        rowErrors.push(`Unknown procedure "${rawCallType}" (no outbound protocol for it)`)
       }
       const phoneDigits = digitsOnly(patient.phoneNumber)
       if (phoneDigits && seenPhones.has(phoneDigits)) {
@@ -325,7 +329,10 @@ export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatient
                   </div>
                   <div>
                     <h4 className="font-medium">Call type</h4>
-                    <p className="text-sm text-muted-foreground">Must match exactly: {CALL_TYPES.join(", ")}</p>
+                    <p className="text-sm text-muted-foreground">
+                      call_type must be a procedure with an outbound protocol: {procedures.map(p => p.value).join(", ") || "none yet"}.
+                      procedure_date is YYYY-MM-DD.
+                    </p>
                   </div>
                   <div>
                     <h4 className="font-medium">Medical conditions</h4>
@@ -420,22 +427,40 @@ export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatient
                   )}
                 </div>
 
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="callType">Call type *</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="callType">Procedure *</Label>
                   <Select value={currentPatient.callType} onValueChange={(value) => setCurrentPatient(prev => ({ ...prev, callType: value }))}>
                     <SelectTrigger className={validationErrors.callType ? "border-destructive" : ""}>
-                      <SelectValue placeholder="Select call type" />
+                      <SelectValue placeholder={proceduresError ? "Procedures unavailable" : "Select procedure"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {CALL_TYPES.map(type => (
-                        <SelectItem key={type} value={type}>{type}</SelectItem>
+                      {procedures.map(p => (
+                        <SelectItem key={p.value} value={p.value}>{p.label}{p.live ? "" : " (draft protocol)"}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {proceduresError && <p className="text-xs text-destructive">{proceduresError}</p>}
                   {validationErrors.callType && (
                     <div className="flex items-center gap-1 text-sm text-destructive">
                       <AlertCircle className="h-3 w-3" />
                       {validationErrors.callType}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="procedureDate">Procedure date *</Label>
+                  <Input
+                    id="procedureDate"
+                    type="date"
+                    value={currentPatient.procedureDate}
+                    onChange={(e) => setCurrentPatient(prev => ({ ...prev, procedureDate: e.target.value }))}
+                    className={validationErrors.procedureDate ? "border-destructive" : ""}
+                  />
+                  {validationErrors.procedureDate && (
+                    <div className="flex items-center gap-1 text-sm text-destructive">
+                      <AlertCircle className="h-3 w-3" />
+                      {validationErrors.procedureDate}
                     </div>
                   )}
                 </div>
@@ -465,7 +490,7 @@ export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatient
 
               <Button
                 onClick={addPatient}
-                disabled={!currentPatient.name || !currentPatient.dob || !currentPatient.gender || !currentPatient.phoneNumber || !currentPatient.callType || isCheckingDuplicate}
+                disabled={!currentPatient.name || !currentPatient.dob || !currentPatient.gender || !currentPatient.phoneNumber || !currentPatient.callType || !currentPatient.procedureDate || isCheckingDuplicate}
                 className="w-full"
               >
                 <Plus className="h-4 w-4 mr-2" />
@@ -547,7 +572,7 @@ export function IdentifyPatientsStep({ data, onUpdate, onNext }: IdentifyPatient
                         <TableCell>{patient.gender}</TableCell>
                         <TableCell>{patient.phoneNumber}</TableCell>
                         <TableCell>
-                          <Badge variant="secondary">{patient.callType}</Badge>
+                          <Badge variant="secondary">{procedureLabel(patient.callType)} · {patient.procedureDate}</Badge>
                         </TableCell>
                         <TableCell>
                           <Button

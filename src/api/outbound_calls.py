@@ -34,7 +34,10 @@ class PatientData(BaseModel):
     phone_number: str
     dob: Optional[str] = None  # Accept string; parse manually
     gender: str
+    # Outbound protocol procedure (protocol service procedure_type, e.g. "colonoscopy")
     call_type: Optional[str] = None
+    # Date of the procedure the call is about (YYYY-MM-DD) -> outbound_calls.event_date
+    procedure_date: Optional[str] = None
     medical_history: Optional[str] = None
     patient_context: Optional[str] = None
 
@@ -166,6 +169,7 @@ def create_batch_outbound_calls(
         for index, patient_data in enumerate(call_data.patients):
             try:
                 parsed_dob = _parse_date_or_400(patient_data.dob)
+                procedure_date = _parse_date_or_400(patient_data.procedure_date)
                 normalized_phone = _digits_only(patient_data.phone_number)
 
                 with db.begin_nested():
@@ -205,7 +209,9 @@ def create_batch_outbound_calls(
                         call_id=uuid.uuid4(),
                         patient_id=patient.patient_id,
                         Procedure=procedure_value,
-                        event_date=custom_dt.date() if custom_dt else None,
+                        call_type=procedure_value,
+                        # the procedure's date (spoken to the patient), not when the call is placed
+                        event_date=procedure_date,
                     )
 
                     # Set scheduling based on option. All dates/times are UTC.
@@ -412,11 +418,17 @@ def update_call_status(
             db.add(call_summary)
         
         call_summary.call_status = new_status.value
-        if summary:
-            call_summary.call_summary = summary
         if notes:
-            call_summary.call_notes = notes
-        
+            call_summary.concern_raised = notes
+        if summary:
+            # the summary lives with the transcript (outbound_transcripts.conversation_summary)
+            db.flush()
+            transcript = db.get(models.OutboundTranscripts, call_summary.summary_id)
+            if transcript is None:
+                transcript = models.OutboundTranscripts(summary_id=call_summary.summary_id)
+                db.add(transcript)
+            transcript.conversation_summary = summary
+
         db.commit()
         db.refresh(call)
         

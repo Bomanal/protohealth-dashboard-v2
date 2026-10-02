@@ -37,7 +37,7 @@ See `.env.example` for descriptions. Names only:
 
 | Used by  | Variables |
 |----------|-----------|
-| Frontend | `VITE_DAILY_ROOM_URL`, `VITE_MONITOR_WS_URL`, `VITE_API_BASE_URL`*, `VITE_DEV_SERVER_PORT`* |
+| Frontend | `VITE_MONITOR_WS_URL`, `VITE_API_BASE_URL`*, `VITE_DEV_SERVER_PORT`* |
 | API      | `CORS_ALLOWED_ORIGINS`, `DATABASE_URL` or `DB_USERNAME` / `DB_PASSWORD` / `DB_HOST` / `DB_PORT` / `DB_NAME`, `PROTOCOL_SERVICE_URL`, `SERVICE_API_KEY` |
 
 \* Read by `vite.config.ts` from the shell environment, not from `.env` files.
@@ -50,7 +50,7 @@ See `.env.example` for descriptions. Names only:
 | Patient Interaction Details | `/patient-interaction/:id` | Live (`GET /case-details/{session_id}`) |
 | Visualize Protocol | `/visualize-protocol` | Live: matrix from `/protocol/{id}/table-data`; save = new draft and approve via `/svc/protocols/...` |
 | Create Protocol wizard | `/create-protocol` | Live: inbound or outbound upload → generated draft → review (matrix / call scripts) → approve |
-| Trigger Outbound Calls | `/trigger-outbound-calls` | Live (`/api/patients/...`, `/api/outbound-calls/batch`) |
+| Trigger Outbound Calls | `/trigger-outbound-calls` | Live: procedures from `/svc/protocols?kind=outbound`, rows via `/api/outbound-calls/batch`, "now" starts the call via `/svc/calls/outbound` |
 | Visualize Inbound | `/visualize-inbound` | Live WebSocket (`VITE_MONITOR_WS_URL`) |
 | Dashboard, Needs Action, Outbound Agents, Outbound Flow Details, Create Outbound Flow, Inbound Triage / Scheduling / Intake | `/`, `/needs-action`, `/outbound-agents/...`, `/inbound-*` | **Demo data** (hard-coded, marked with a "Demo data" badge) |
 

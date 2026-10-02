@@ -2,7 +2,6 @@
 
 interface ImportMetaEnv {
   /** Daily room URL opened for "call now" outbound calls. Unset = queue only. */
-  readonly VITE_DAILY_ROOM_URL?: string
   /** WebSocket URL of the FlowManager state monitor (default ws://localhost:8765). */
   readonly VITE_MONITOR_WS_URL?: string
 }

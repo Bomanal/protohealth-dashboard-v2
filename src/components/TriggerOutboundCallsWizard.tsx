@@ -15,7 +15,10 @@ export interface PatientData {
   dob: string
   gender: string
   phoneNumber: string
+  /** outbound protocol procedure_type (e.g. "colonoscopy") */
   callType: string
+  /** YYYY-MM-DD date of the procedure the call is about */
+  procedureDate: string
   medicalConditions: string
   additionalNotes: string
 }
@@ -26,8 +29,6 @@ export interface OutboundCallData {
   customDateTime?: Date
 }
 
-// Daily room used to join "call now" sessions. Leave unset to only queue calls.
-const DAILY_ROOM_URL: string | undefined = import.meta.env.VITE_DAILY_ROOM_URL || undefined
 
 const STEPS = [
   { id: 1, title: "Identify patients", description: "Patient information" },
@@ -68,6 +69,7 @@ export function TriggerOutboundCallsWizard() {
         gender: patient.gender,
         // Include per-patient call type so backend can set Procedure if selected_protocol is not provided
         call_type: patient.callType || null,
+        procedure_date: patient.procedureDate || null,
         medical_history: patient.medicalConditions || null,
         patient_context: patient.additionalNotes || null
       }))
@@ -111,24 +113,31 @@ export function TriggerOutboundCallsWizard() {
         description: `${result.success_count} calls scheduled. ${result.failure_count} failed.`,
       })
 
-      // If triggering now, open the Daily room. Only the call_id is passed (no PHI in the URL).
+      // "Now": start the first call through the protocol service, which creates a private room, starts the bot
+      // for this call and returns a join link (only the call_id travels; patient data stays server-side).
       if (callData.schedulingOption === 'now' && Array.isArray(result.successful_calls) && result.successful_calls.length > 0) {
         const firstCall = result.successful_calls[0]
-        let target: URL | null = null
-        try {
-          target = DAILY_ROOM_URL && firstCall?.call_id ? new URL(DAILY_ROOM_URL) : null
-        } catch {
-          target = null // misconfigured VITE_DAILY_ROOM_URL; fall through to "queued"
-        }
-        if (target) {
-          target.searchParams.set('call_id', String(firstCall.call_id))
-          window.open(target.toString(), '_blank', 'noopener,noreferrer')
+        const started = await fetch('/svc/calls/outbound', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ call_id: firstCall.call_id, channel: 'browser' }),
+        })
+        if (started.ok) {
+          const body = await started.json()
+          window.open(body.join_url, '_blank', 'noopener,noreferrer')
+          if (result.successful_calls.length > 1) {
+            toast({ title: "First call started", description: `${result.successful_calls.length - 1} more call(s) are queued.` })
+          }
           return
         }
-        toast({
-          title: "Calls queued",
-          description: "No call room is configured (VITE_DAILY_ROOM_URL), so calls have been queued without opening a room.",
-        })
+        let detail = `HTTP ${started.status}`
+        try {
+          const parsed = await started.json()
+          if (typeof parsed?.detail === 'string') detail = parsed.detail
+        } catch {
+          // non-JSON body
+        }
+        toast({ title: "Calls queued, but the call could not be started", description: detail, variant: "destructive" })
       }
 
       // Otherwise go back to engagements page

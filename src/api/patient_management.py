@@ -5,12 +5,22 @@ from typing import List, Optional
 import uuid
 from datetime import date
 import re
+import logging
 
 from src import models
 from database import get_db
+from src.api.error_logging import log_error
 from pydantic import BaseModel, validator
 
 router = APIRouter(prefix="/api/patients", tags=["patients"])
+logger = logging.getLogger(__name__)
+
+
+def normalize_phone(value: Optional[str]) -> Optional[str]:
+    """Phone numbers are stored as digits only (matches outbound_calls batch import)."""
+    if value is None:
+        return None
+    return re.sub(r'\D', '', value)
 
 # Pydantic models for request/response
 class PatientCreateRequest(BaseModel):
@@ -33,7 +43,7 @@ class PatientCreateRequest(BaseModel):
         digits_only = re.sub(r'\D', '', v)
         if len(digits_only) < 10:
             raise ValueError('Phone number must contain at least 10 digits')
-        return v
+        return digits_only
 
     @validator('gender')
     def validate_gender(cls, v):
@@ -68,6 +78,7 @@ class PatientUpdateRequest(BaseModel):
             digits_only = re.sub(r'\D', '', v)
             if len(digits_only) < 10:
                 raise ValueError('Phone number must contain at least 10 digits')
+            return digits_only
         return v
 
     @validator('gender')
@@ -86,12 +97,13 @@ class PatientUpdateRequest(BaseModel):
 
 class PatientResponse(BaseModel):
     patient_id: uuid.UUID
-    name: str
-    phone_number: str
-    dob: date
-    gender: str
-    medical_history: Optional[str]
-    patient_context: Optional[str]
+    # Optional: batch-imported patients may lack dob, and soft-deleted records have all fields cleared
+    name: Optional[str] = None
+    phone_number: Optional[str] = None
+    dob: Optional[date] = None
+    gender: Optional[str] = None
+    medical_history: Optional[str] = None
+    patient_context: Optional[str] = None
 
     class Config:
         orm_mode = True
@@ -137,9 +149,10 @@ def create_patient(patient_data: PatientCreateRequest, db: Session = Depends(get
         )
     except Exception as e:
         db.rollback()
+        log_error(logger, "patient_management database error", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error creating patient: {str(e)}"
+            detail="Error creating patient"
         )
 
 @router.get("/", response_model=PatientListResponse)
@@ -168,9 +181,10 @@ def get_patients(
         return PatientListResponse(patients=patients, total=total)
         
     except Exception as e:
+        log_error(logger, "patient_management database error", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving patients: {str(e)}"
+            detail="Error retrieving patients"
         )
 
 @router.get("/{patient_id}", response_model=PatientResponse)
@@ -192,9 +206,10 @@ def get_patient(patient_id: uuid.UUID, db: Session = Depends(get_db)):
     except HTTPException:
         raise
     except Exception as e:
+        log_error(logger, "patient_management database error", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving patient: {str(e)}"
+            detail="Error retrieving patient"
         )
 
 @router.put("/{patient_id}", response_model=PatientResponse)
@@ -235,9 +250,10 @@ def update_patient(
         )
     except Exception as e:
         db.rollback()
+        log_error(logger, "patient_management database error", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error updating patient: {str(e)}"
+            detail="Error updating patient"
         )
 
 @router.delete("/{patient_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -268,22 +284,30 @@ def delete_patient(patient_id: uuid.UUID, db: Session = Depends(get_db)):
         raise
     except Exception as e:
         db.rollback()
+        log_error(logger, "patient_management database error", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error deleting patient: {str(e)}"
+            detail="Error deleting patient"
         )
 
 @router.get("/search/by-phone/{phone_number}", response_model=Optional[PatientResponse])
 def find_patient_by_phone(phone_number: str, db: Session = Depends(get_db)):
     """
     Find a patient by phone number.
+
+    Returns 200 with `null` when no patient matches. The input is normalized to
+    digits only, matching how phone numbers are stored.
     """
+    digits = normalize_phone(phone_number)
+    if not digits:
+        return None
     try:
-        patient = db.query(models.Patients).filter(models.Patients.phone_number == phone_number).first()
+        patient = db.query(models.Patients).filter(models.Patients.phone_number == digits).first()
         return patient
         
     except Exception as e:
+        log_error(logger, "patient_management database error", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error searching for patient: {str(e)}"
+            detail="Error searching for patient"
         )

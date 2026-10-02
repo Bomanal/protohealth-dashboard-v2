@@ -41,11 +41,6 @@ export interface WebSocketMessage {
   data: FlowMonitorState;
 }
 
-export interface ThreadCondition {
-  threadId: string;
-  conditionName: string;
-}
-
 export interface ConnectionStatus {
   connected: boolean;
   reconnecting: boolean;

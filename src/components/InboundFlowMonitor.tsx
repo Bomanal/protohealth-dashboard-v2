@@ -9,6 +9,8 @@ import { ProtocolInfoPanel } from './inbound-monitor/ProtocolInfoPanel';
 import { ConversationPanel } from './inbound-monitor/ConversationPanel';
 import { ActivityLogPanel } from './inbound-monitor/ActivityLogPanel';
 
+const MONITOR_WS_URL: string = import.meta.env.VITE_MONITOR_WS_URL || 'ws://localhost:8765';
+
 export function InboundFlowMonitor() {
   const {
     currentState,
@@ -22,11 +24,8 @@ export function InboundFlowMonitor() {
   } = useInboundFlowMonitor();
 
   const { connectionStatus } = useWebSocket({
-    url: 'ws://localhost:8765',
+    url: MONITOR_WS_URL,
     onMessage: handleWebSocketMessage,
-    onError: (error) => console.error('WebSocket error:', error),
-    onOpen: () => console.log('Connected to FlowManager monitor'),
-    onClose: () => console.log('Disconnected from FlowManager monitor')
   });
 
   const metrics = getMetrics();

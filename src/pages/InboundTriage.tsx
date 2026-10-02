@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { DemoDataBadge } from "@/components/DemoDataBadge"
 import { useNavigate } from "react-router-dom"
 import { DashboardLayout } from "@/components/DashboardLayout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -94,6 +95,7 @@ export default function InboundTriage() {
             <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
               Inbound Triage Protocols
             </h1>
+            <DemoDataBadge className="mt-2" />
             <p className="text-muted-foreground mt-1">
               Create and manage AI triage decision trees and symptom assessments
             </p>

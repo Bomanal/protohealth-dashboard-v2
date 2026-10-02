@@ -211,6 +211,7 @@ def get_protocol_table_data(protocol_id: str, db: Session = Depends(get_db)):
             models.ProtocolThreads.thread_id,
             models.ThreadOutcomes.final_condition,
             models.ThreadOutcomes.triage_outcome,
+            models.ThreadOutcomes.acceptance,
             models.Nodes.node_id,
             models.Nodes.question,
             models.ThreadNodeValues.node_value
@@ -248,6 +249,8 @@ def get_protocol_table_data(protocol_id: str, db: Session = Depends(get_db)):
                 "thread_id": row.thread_id,
                 "final_condition": row.final_condition,
                 "triage_outcome": row.triage_outcome,
+                # True = accepted, False = rejected, None = not yet reviewed
+                "acceptance": row.acceptance,
                 "values": {}
             }
         threads[row.thread_id]["values"][row.node_id] = row.node_value

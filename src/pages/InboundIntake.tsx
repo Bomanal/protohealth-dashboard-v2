@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { DemoDataBadge } from "@/components/DemoDataBadge"
 import { DashboardLayout } from "@/components/DashboardLayout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -113,6 +114,7 @@ export default function InboundIntake() {
             <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
               Patient Intake Protocols
             </h1>
+            <DemoDataBadge className="mt-2" />
             <p className="text-muted-foreground mt-1">
               Manage AI-powered patient registration and intake protocols
             </p>

@@ -13,7 +13,6 @@ import InboundTriage from "./pages/InboundTriage";
 import InboundScheduling from "./pages/InboundScheduling";
 import InboundIntake from "./pages/InboundIntake";
 import PatientInteractionDetails from "./pages/PatientInteractionDetails";
-import CreateTriageProtocol from "./pages/CreateTriageProtocol";
 import CreateProtocol from "./pages/CreateProtocol";
 import NotFound from "./pages/NotFound";
 import VisualizeProtocolPage from "@/pages/VisualizeProtocol";
@@ -40,7 +39,6 @@ const App = () => (
           <Route path="/inbound-scheduling" element={<InboundScheduling />} />
           <Route path="/inbound-intake" element={<InboundIntake />} />
           <Route path="/patient-interaction/:id" element={<PatientInteractionDetails />} />
-          <Route path="/create-triage-protocol" element={<CreateTriageProtocol />} />
           <Route path="/create-protocol" element={<CreateProtocol />} />
           <Route path="/visualize-protocol" element={<VisualizeProtocolPage />} />
           <Route path="/trigger-outbound-calls" element={<TriggerOutboundCalls />} />

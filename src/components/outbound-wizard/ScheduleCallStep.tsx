@@ -58,6 +58,26 @@ export function ScheduleCallStep({ data, onUpdate, onNext, onBack }: ScheduleCal
                     <p className="text-sm text-muted-foreground mt-1">
                       Start calling patients immediately after review
                     </p>
+                    {data.schedulingOption === 'now' && (
+                      <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="How to place the call">
+                        {([
+                          ['phone', 'Phone call', "Dial each patient's number (Exotel)"],
+                          ['browser', 'Test in browser', 'Open the first call in a browser tab (staff plays the patient)'],
+                        ] as const).map(([value, title, hint]) => (
+                          <button
+                            key={value}
+                            type="button"
+                            onClick={() => onUpdate({ channel: value })}
+                            className={`rounded-md border px-3 py-2 text-left text-sm ${
+                              (data.channel ?? 'phone') === value ? 'border-primary bg-primary/5' : 'hover:bg-muted/40'
+                            }`}
+                          >
+                            <div className="font-medium">{title}</div>
+                            <div className="text-xs text-muted-foreground">{hint}</div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 

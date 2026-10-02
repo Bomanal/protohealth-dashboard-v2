@@ -27,6 +27,8 @@ export interface OutboundCallData {
   patients: PatientData[]
   schedulingOption: 'now' | 'best_time' | 'custom'
   customDateTime?: Date
+  /** "now" only: dial the patients by phone (default) or open a browser test call */
+  channel?: 'phone' | 'browser'
 }
 
 
@@ -113,31 +115,44 @@ export function TriggerOutboundCallsWizard() {
         description: `${result.success_count} calls scheduled. ${result.failure_count} failed.`,
       })
 
-      // "Now": start the first call through the protocol service, which creates a private room, starts the bot
-      // for this call and returns a join link (only the call_id travels; patient data stays server-side).
+      // "Now": start calls through the protocol service (only call_ids travel; patient data stays server-side).
+      // phone: the service dials every patient (Exotel). browser: the first call opens in a browser tab.
       if (callData.schedulingOption === 'now' && Array.isArray(result.successful_calls) && result.successful_calls.length > 0) {
-        const firstCall = result.successful_calls[0]
-        const started = await fetch('/svc/calls/outbound', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ call_id: firstCall.call_id, channel: 'browser' }),
-        })
-        if (started.ok) {
-          const body = await started.json()
-          window.open(body.join_url, '_blank', 'noopener,noreferrer')
-          if (result.successful_calls.length > 1) {
-            toast({ title: "First call started", description: `${result.successful_calls.length - 1} more call(s) are queued.` })
+        const channel = callData.channel ?? 'phone'
+        const targets = channel === 'phone' ? result.successful_calls : result.successful_calls.slice(0, 1)
+        const failures: string[] = []
+        let joinUrl: string | null = null
+        for (const call of targets) {
+          const started = await fetch('/svc/calls/outbound', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ call_id: call.call_id, channel }),
+          })
+          if (started.ok) {
+            const body = await started.json()
+            joinUrl = joinUrl ?? body.join_url ?? null
+            continue
           }
-          return
+          let detail = `HTTP ${started.status}`
+          try {
+            const parsed = await started.json()
+            if (typeof parsed?.detail === 'string') detail = parsed.detail
+          } catch {
+            // non-JSON body
+          }
+          failures.push(detail)
         }
-        let detail = `HTTP ${started.status}`
-        try {
-          const parsed = await started.json()
-          if (typeof parsed?.detail === 'string') detail = parsed.detail
-        } catch {
-          // non-JSON body
+        if (channel === 'browser' && joinUrl) {
+          window.open(joinUrl, '_blank', 'noopener,noreferrer')
         }
-        toast({ title: "Calls queued, but the call could not be started", description: detail, variant: "destructive" })
+        if (failures.length > 0) {
+          toast({ title: `${failures.length} call(s) could not be started`, description: failures[0], variant: "destructive" })
+        } else if (channel === 'phone') {
+          toast({ title: "Dialing", description: `${targets.length} patient(s) are being called.` })
+        } else if (result.successful_calls.length > 1) {
+          toast({ title: "First call started", description: `${result.successful_calls.length - 1} more call(s) are queued.` })
+        }
+        if (channel === 'browser' && joinUrl) return
       }
 
       // Otherwise go back to engagements page

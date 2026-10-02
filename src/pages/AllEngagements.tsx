@@ -1,159 +1,235 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { DashboardLayout } from "@/components/DashboardLayout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { StatusBadge } from "@/components/StatusBadge"
-import { mockPatientInteractions } from "@/data/mockData"
-import { 
-  Eye, 
-  Search, 
-  Filter, 
-  Calendar,
-  Download,
-  MessageSquare,
-  Phone,
-  Heart,
-  Stethoscope,
-  ArrowRight,
-  Clock,
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Eye,
+  Search,
   CheckCircle,
-  AlertTriangle
+  AlertTriangle,
+  XCircle,
+  Loader2,
+  RefreshCw,
 } from "lucide-react"
 
+/** Shape returned by GET /case-list (src/api/case_list.py). */
 type CaseListItem = {
-  call_id: string;
-  phone_number: string;
-  user_name: string | null;
-  last_call: string | null;
-  status: string | null;
-  preliminary_diagnosis: string | null;
-  triage_outcome: string | null;
-  dob: string | null;
-};
+  call_id: string // conversation session id
+  phone_number: string
+  user_name: string | null
+  last_call: string | null
+  status: string | null // conversation_status: completed | abandoned | error
+  preliminary_diagnosis: string | null // triage_outcomes.final_condition
+  triage_outcome: string | null
+  dob: string | null
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  completed: "Completed",
+  abandoned: "Abandoned",
+  error: "Error",
+}
+
+const statusBadgeVariant = (status: string | null): "default" | "secondary" | "destructive" | "outline" => {
+  switch (status) {
+    case "completed":
+      return "default"
+    case "abandoned":
+      return "secondary"
+    case "error":
+      return "destructive"
+    default:
+      return "outline"
+  }
+}
+
+const formatDateTime = (value: string | null) => {
+  if (!value) return "—"
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return "—"
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+}
 
 export default function AllEngagements() {
   const navigate = useNavigate()
   const [cases, setCases] = useState<CaseListItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
-  const [selectedDepartment, setSelectedDepartment] = useState("all")
   const [selectedStatus, setSelectedStatus] = useState("all")
-  const [selectedCallType, setSelectedCallType] = useState("all")
+  const [selectedOutcome, setSelectedOutcome] = useState("all")
 
-  useEffect(() => {
-    fetch("/case-list") // Use your actual API URL
-      .then((res) => res.json())
-      .then((data) => {
-        // Sort cases by last_call in descending order (most recent first)
-        const sortedData = data.sort((a: CaseListItem, b: CaseListItem) => {
-          if (!a.last_call && !b.last_call) return 0
-          if (!a.last_call) return 1
-          if (!b.last_call) return -1
-          return new Date(b.last_call).getTime() - new Date(a.last_call).getTime()
-        })
-        setCases(sortedData)
-        setLoading(false)
+  const loadCases = useCallback(async (signal?: AbortSignal) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch("/case-list", { signal })
+      if (!res.ok) {
+        throw new Error(`Server responded with HTTP ${res.status}`)
+      }
+      const data: unknown = await res.json()
+      if (!Array.isArray(data)) {
+        throw new Error("Unexpected response format")
+      }
+      const sorted = (data as CaseListItem[]).slice().sort((a, b) => {
+        if (!a.last_call && !b.last_call) return 0
+        if (!a.last_call) return 1
+        if (!b.last_call) return -1
+        return new Date(b.last_call).getTime() - new Date(a.last_call).getTime()
       })
-      .catch((err) => {
-        console.error("Failed to fetch case list:", err)
-        setLoading(false)
-      })
+      setCases(sorted)
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return
+      setCases([])
+      setError(err instanceof Error ? err.message : "Failed to load engagements")
+    } finally {
+      if (!signal?.aborted) setLoading(false)
+    }
   }, [])
 
-  const filteredInteractions = (cases.length > 0 ? cases : mockPatientInteractions).filter(interaction => {
-    const name = "patientName" in interaction ? interaction.patientName : ""
-    const sourceDetail = "sourceDetail" in interaction ? interaction.sourceDetail : ""
-    const matchesSearch = name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         (sourceDetail?.toLowerCase().includes(searchQuery.toLowerCase()))
-    const matchesDepartment = selectedDepartment === "all" || ("department" in interaction && interaction.department === selectedDepartment)
-    const matchesStatus = selectedStatus === "all" || interaction.status === selectedStatus
-    
-    // Call type filter
-    const isOutbound = "source" in interaction && interaction.source === "outbound_flow"
-    const isInbound = "source" in interaction && interaction.source !== "outbound_flow"
-    const matchesCallType = selectedCallType === "all" || 
-                           (selectedCallType === "outbound" && isOutbound) ||
-                           (selectedCallType === "inbound" && isInbound)
-    
-    return matchesSearch && matchesDepartment && matchesStatus && matchesCallType
-  }).sort((a, b) => {
-    // First, prioritize API entries (with last_call) over mock entries (with timestamp)
-    const isApiEntryA = "last_call" in a
-    const isApiEntryB = "last_call" in b
-    
-    // API entries come first
-    if (isApiEntryA && !isApiEntryB) return -1
-    if (!isApiEntryA && isApiEntryB) return 1
-    
-    // If both are API entries, sort by last_call in descending order
-    if (isApiEntryA && isApiEntryB) {
-      const timestampA = a.last_call
-      const timestampB = b.last_call
-      
-      if (!timestampA && !timestampB) return 0
-      if (!timestampA) return 1
-      if (!timestampB) return -1
-      
-      return new Date(timestampB).getTime() - new Date(timestampA).getTime()
-    }
-    
-    // If both are mock entries, sort by timestamp in descending order
-    if (!isApiEntryA && !isApiEntryB) {
-      const timestampA = a.timestamp
-      const timestampB = b.timestamp
-      
-      if (!timestampA && !timestampB) return 0
-      if (!timestampA) return 1
-      if (!timestampB) return -1
-      
-      return new Date(timestampB).getTime() - new Date(timestampA).getTime()
-    }
-    
-    return 0
-  })
+  useEffect(() => {
+    const controller = new AbortController()
+    loadCases(controller.signal)
+    return () => controller.abort()
+  }, [loadCases])
 
-  const getDepartmentIcon = (department: string) => {
-    switch (department) {
-      case "cardiology":
-        return <Heart className="h-4 w-4" />
-      case "gastroenterology":
-        return <Stethoscope className="h-4 w-4" />
-      default:
-        return <MessageSquare className="h-4 w-4" />
-    }
-  }
+  const outcomeOptions = useMemo(
+    () => Array.from(new Set(cases.map(c => c.triage_outcome).filter((o): o is string => !!o))).sort(),
+    [cases]
+  )
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "engaged":
-        return <CheckCircle className="h-4 w-4 text-success" />
-      case "needs_action":
-        return <AlertTriangle className="h-4 w-4 text-destructive" />
-      case "in_queue":
-        return <Clock className="h-4 w-4 text-info" />
-      default:
-        return <MessageSquare className="h-4 w-4" />
-    }
-  }
-
-  const formatDateTime = (timestamp: Date | string) => {
-    const dateObj = typeof timestamp === "string" ? new Date(timestamp) : timestamp
-    return dateObj.toLocaleDateString("en-US", { 
-      month: "short", 
-      day: "numeric", 
-      hour: "2-digit", 
-      minute: "2-digit" 
+  const filteredCases = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    const qDigits = q.replace(/\D/g, "")
+    return cases.filter(c => {
+      const matchesSearch =
+        !q ||
+        [c.user_name, c.call_id, c.preliminary_diagnosis, c.triage_outcome]
+          .some(v => v?.toLowerCase().includes(q)) ||
+        c.phone_number?.toLowerCase().includes(q) ||
+        (qDigits.length >= 3 && c.phone_number?.replace(/\D/g, "").includes(qDigits))
+      const matchesStatus = selectedStatus === "all" || c.status === selectedStatus
+      const matchesOutcome = selectedOutcome === "all" || c.triage_outcome === selectedOutcome
+      return matchesSearch && matchesStatus && matchesOutcome
     })
-  }
+  }, [cases, searchQuery, selectedStatus, selectedOutcome])
 
-  const totalEngagements = (cases.length > 0 ? cases : mockPatientInteractions).length
-  const engagedCount = (cases.length > 0 ? cases : mockPatientInteractions).filter(i => i.status === "engaged").length
-  const needsActionCount = (cases.length > 0 ? cases : mockPatientInteractions).filter(i => i.status === "needs_action").length
-  const inQueueCount = (cases.length > 0 ? cases : mockPatientInteractions).filter(i => i.status === "in_queue").length
+  const totalCount = cases.length
+  const completedCount = cases.filter(c => c.status === "completed").length
+  const abandonedCount = cases.filter(c => c.status === "abandoned").length
+  const errorCount = cases.filter(c => c.status === "error").length
+
+  const renderBody = () => {
+    if (loading) {
+      return (
+        <div className="flex items-center justify-center py-12 text-muted-foreground">
+          <Loader2 className="h-6 w-6 animate-spin mr-2" />
+          Loading engagements...
+        </div>
+      )
+    }
+    if (error) {
+      return (
+        <div className="text-center py-8">
+          <AlertTriangle className="h-12 w-12 text-destructive mx-auto mb-4" />
+          <h3 className="text-lg font-semibold mb-2">Couldn't load engagements</h3>
+          <p className="text-muted-foreground mb-4">{error}</p>
+          <Button variant="outline" onClick={() => loadCases()}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Retry
+          </Button>
+        </div>
+      )
+    }
+    if (cases.length === 0) {
+      return (
+        <div className="text-center py-8">
+          <Eye className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-semibold mb-2">No engagements yet</h3>
+          <p className="text-muted-foreground">Completed triage calls will appear here.</p>
+        </div>
+      )
+    }
+    if (filteredCases.length === 0) {
+      return (
+        <div className="text-center py-8">
+          <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-semibold mb-2">No engagements match your filters</h3>
+          <p className="text-muted-foreground">Try adjusting your search or filters.</p>
+        </div>
+      )
+    }
+    return (
+      <div className="space-y-4">
+        {filteredCases.map((c) => (
+          <Card key={c.call_id} className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-primary/20 hover:border-l-primary">
+            <CardContent className="p-6">
+              <div className="flex items-start justify-between gap-6">
+                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* Patient Info */}
+                  <div className="space-y-1">
+                    <h4 className="font-semibold text-lg text-foreground">
+                      {c.user_name || <span className="text-muted-foreground italic">Unknown caller</span>}
+                    </h4>
+                    {c.dob && <p className="text-sm text-muted-foreground">DOB: {c.dob}</p>}
+                    <p className="text-sm text-muted-foreground">{c.phone_number}</p>
+                    <p className="text-xs text-muted-foreground font-mono truncate" title={c.call_id}>
+                      Session {c.call_id.slice(0, 8)}
+                    </p>
+                  </div>
+
+                  {/* Date & Channel */}
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Last call</p>
+                    <p className="text-sm font-medium">{formatDateTime(c.last_call)}</p>
+                    <p className="text-sm text-muted-foreground">Inbound triage</p>
+                  </div>
+
+                  {/* Status & Condition */}
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Status</p>
+                    <Badge variant={statusBadgeVariant(c.status)} className="text-xs font-medium">
+                      {c.status ? STATUS_LABELS[c.status] ?? c.status : "Unknown"}
+                    </Badge>
+                    <p className="text-sm text-muted-foreground">
+                      {c.preliminary_diagnosis || "No condition recorded"}
+                    </p>
+                  </div>
+
+                  {/* Triage Outcome */}
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Triage outcome</p>
+                    <p className="text-sm font-medium">{c.triage_outcome || "Pending"}</p>
+                  </div>
+                </div>
+
+                <div className="flex-shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate(`/patient-interaction/${c.call_id}`)}
+                    className="hover:bg-primary hover:text-primary-foreground transition-colors"
+                  >
+                    View Details
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    )
+  }
 
   return (
     <DashboardLayout>
@@ -165,19 +241,13 @@ export default function AllEngagements() {
               All Engagements
             </h1>
             <p className="text-muted-foreground mt-1">
-              Complete overview of patient interactions across all departments
+              Inbound triage conversations recorded by the voice agent
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline">
-              <Calendar className="h-4 w-4 mr-1" />
-              Date Range
-            </Button>
-            <Button variant="outline">
-              <Download className="h-4 w-4 mr-1" />
-              Export
-            </Button>
-          </div>
+          <Button variant="outline" onClick={() => loadCases()} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 mr-1 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
         </div>
 
         {/* Stats Overview */}
@@ -190,7 +260,7 @@ export default function AllEngagements() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{totalEngagements}</div>
+              <div className="text-2xl font-bold">{loading || error ? "—" : totalCount}</div>
               <p className="text-xs text-muted-foreground">All time</p>
             </CardContent>
           </Card>
@@ -199,12 +269,25 @@ export default function AllEngagements() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">
                 <CheckCircle className="h-4 w-4 text-success" />
-                Engaged
+                Completed
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-success">{engagedCount}</div>
-              <p className="text-xs text-muted-foreground">Successfully contacted</p>
+              <div className="text-2xl font-bold text-success">{loading || error ? "—" : completedCount}</div>
+              <p className="text-xs text-muted-foreground">Triage finished</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <XCircle className="h-4 w-4 text-muted-foreground" />
+                Abandoned
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{loading || error ? "—" : abandonedCount}</div>
+              <p className="text-xs text-muted-foreground">Caller dropped off</p>
             </CardContent>
           </Card>
 
@@ -212,25 +295,12 @@ export default function AllEngagements() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4 text-destructive" />
-                Needs Action
+                Errors
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-destructive">{needsActionCount}</div>
-              <p className="text-xs text-muted-foreground">Requires follow-up</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Clock className="h-4 w-4 text-info" />
-                In Queue
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-info">{inQueueCount}</div>
-              <p className="text-xs text-muted-foreground">Awaiting contact</p>
+              <div className="text-2xl font-bold text-destructive">{loading || error ? "—" : errorCount}</div>
+              <p className="text-xs text-muted-foreground">Pipeline errors</p>
             </CardContent>
           </Card>
         </div>
@@ -244,255 +314,53 @@ export default function AllEngagements() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search patients, conditions, or sources..."
+                placeholder="Search by name, phone, session id, condition or outcome..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
               />
             </div>
-            
-            <div className="flex flex-wrap gap-2">
+
+            <div className="flex flex-wrap gap-2 items-center">
               <div className="flex gap-2">
-                <Button
-                  variant={selectedCallType === "all" ? "default" : "outline"}
-                  onClick={() => setSelectedCallType("all")}
-                  size="sm"
-                >
-                  All Call Types
-                </Button>
-                <Button
-                  variant={selectedCallType === "inbound" ? "default" : "outline"}
-                  onClick={() => setSelectedCallType("inbound")}
-                  size="sm"
-                >
-                  <Phone className="h-4 w-4 mr-1" />
-                  Inbound
-                </Button>
-                <Button
-                  variant={selectedCallType === "outbound" ? "default" : "outline"}
-                  onClick={() => setSelectedCallType("outbound")}
-                  size="sm"
-                >
-                  <ArrowRight className="h-4 w-4 mr-1" />
-                  Outbound
-                </Button>
+                {(["all", "completed", "abandoned", "error"] as const).map(s => (
+                  <Button
+                    key={s}
+                    variant={selectedStatus === s ? "default" : "outline"}
+                    onClick={() => setSelectedStatus(s)}
+                    size="sm"
+                  >
+                    {s === "all" ? "All Status" : STATUS_LABELS[s]}
+                  </Button>
+                ))}
               </div>
 
-              <div className="flex gap-2">
-                <Button
-                  variant={selectedDepartment === "all" ? "default" : "outline"}
-                  onClick={() => setSelectedDepartment("all")}
-                  size="sm"
-                >
-                  All Departments
-                </Button>
-                <Button
-                  variant={selectedDepartment === "cardiology" ? "default" : "outline"}
-                  onClick={() => setSelectedDepartment("cardiology")}
-                  size="sm"
-                >
-                  <Heart className="h-4 w-4 mr-1" />
-                  Cardiology
-                </Button>
-                <Button
-                  variant={selectedDepartment === "gastroenterology" ? "default" : "outline"}
-                  onClick={() => setSelectedDepartment("gastroenterology")}
-                  size="sm"
-                >
-                  <Stethoscope className="h-4 w-4 mr-1" />
-                  Gastro
-                </Button>
-              </div>
-              
-              <div className="flex gap-2">
-                <Button
-                  variant={selectedStatus === "all" ? "default" : "outline"}
-                  onClick={() => setSelectedStatus("all")}
-                  size="sm"
-                >
-                  All Status
-                </Button>
-                <Button
-                  variant={selectedStatus === "engaged" ? "default" : "outline"}
-                  onClick={() => setSelectedStatus("engaged")}
-                  size="sm"
-                >
-                  <CheckCircle className="h-4 w-4 mr-1" />
-                  Engaged
-                </Button>
-                <Button
-                  variant={selectedStatus === "needs_action" ? "default" : "outline"}
-                  onClick={() => setSelectedStatus("needs_action")}
-                  size="sm"
-                >
-                  <AlertTriangle className="h-4 w-4 mr-1" />
-                  Needs Action
-                </Button>
-                <Button
-                  variant={selectedStatus === "in_queue" ? "default" : "outline"}
-                  onClick={() => setSelectedStatus("in_queue")}
-                  size="sm"
-                >
-                  <Clock className="h-4 w-4 mr-1" />
-                  In Queue
-                </Button>
-              </div>
+              <Select value={selectedOutcome} onValueChange={setSelectedOutcome}>
+                <SelectTrigger className="w-[240px] h-9">
+                  <SelectValue placeholder="Triage outcome" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All triage outcomes</SelectItem>
+                  {outcomeOptions.map(o => (
+                    <SelectItem key={o} value={o}>{o}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>
 
-        {/* Engagements Table */}
+        {/* Engagements List */}
         <Card>
           <CardHeader>
-            <CardTitle>Patient Engagements ({filteredInteractions.length})</CardTitle>
-            <CardDescription>
-              Showing {filteredInteractions.length} of {totalEngagements} total engagements
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {filteredInteractions.length === 0 ? (
-              <div className="text-center py-8">
-                <Eye className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No engagements found</h3>
-                <p className="text-muted-foreground">Try adjusting your search or filters.</p>
-              </div>
-            ) : (
-            <div className="space-y-4">
-              {filteredInteractions.map((interaction) => {
-                // Safe property access for both API and mock data
-                const patientName = "user_name" in interaction ? (interaction.user_name || "John Smith") : ("patientName" in interaction ? interaction.patientName : "John Smith")
-                const dateOfBirth = "dob" in interaction ? interaction.dob : ("dateOfBirth" in interaction ? interaction.dateOfBirth : "1985-03-15")
-                const callNumber = "call_id" in interaction ? interaction.call_id : ("callNumber" in interaction ? interaction.callNumber : "N/A")
-                const phoneNumber = "phone_number" in interaction ? interaction.phone_number : ("phoneNumber" in interaction ? interaction.phoneNumber : "N/A")
-                const preliminaryDiagnosis = "preliminary_diagnosis" in interaction ? interaction.preliminary_diagnosis : ("preliminaryDiagnosis" in interaction ? interaction.preliminaryDiagnosis : "N/A")
-                const triageOutcome = "triage_outcome" in interaction ? interaction.triage_outcome : ("triageOutcome" in interaction ? interaction.triageOutcome : "N/A")
-                const timestamp = "timestamp" in interaction ? interaction.timestamp : ("last_call" in interaction ? interaction.last_call : "N/A")
-                const sourceDetail = "sourceDetail" in interaction ? interaction.sourceDetail : ""
-                const department = "department" in interaction ? interaction.department : "N/A"
-                // Status is always present
-                const status = interaction.status
-
-                const getChannelSubdisposition = () => {
-                  if ("source" in interaction && interaction.source === "outbound_flow") {
-                    return sourceDetail || "Outbound Flow"
-                  }
-                  return "source" in interaction ? interaction.source.replace("_", " ") : ""
-                }
-
-                const getStatusForDisplay = () => {
-                  if ("source" in interaction && interaction.source === "outbound_flow") {
-                    switch (status) {
-                      case "needs_action": return "Needs action"
-                      case "engaged": return "Completed"
-                      case "message_sent": return "No contact"
-                      case "in_queue": return "In queue"
-                      default: return status
-                    }
-                  } else {
-                    // Inbound
-                    switch (status) {
-                      case "needs_action": return "Needs action"
-                      case "engaged": return "Completed"
-                      case "scheduled": return "Completed"
-                      case "in_queue": return "Abandoned"
-                      default: return status
-                    }
-                  }
-                }
-
-                const getStatusBadgeVariant = () => {
-                  const statusDisplay = getStatusForDisplay()
-                  switch (statusDisplay.toLowerCase()) {
-                    case "completed": return "default"
-                    case "needs action": return "destructive"
-                    case "no contact": return "secondary"
-                    case "in queue": return "outline"
-                    case "abandoned": return "secondary"
-                    default: return "outline"
-                  }
-                }
-
-                const shouldShowTriageOutcome = () => {
-                  const statusDisplay = getStatusForDisplay().toLowerCase()
-                  return statusDisplay === "completed" || statusDisplay === "needs action"
-                }
-
-                return (
-                  <Card key={callNumber} className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-primary/20 hover:border-l-primary">
-                    <CardContent className="p-6">
-                      <div className="flex items-start justify-between gap-6">
-                        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                          {/* Patient Info */}
-                          <div className="space-y-3">
-                            <div>
-                              <h4 className="font-semibold text-lg text-foreground mb-1">
-                                {patientName}
-                              </h4>
-                              <p className="text-sm text-muted-foreground">DOB: {dateOfBirth}</p>
-                              <p className="text-sm text-muted-foreground">Call #{callNumber}</p>
-                            </div>
-                          </div>
-
-                          {/* Interaction Details */}
-                          <div className="space-y-3">
-                            <div>
-                              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
-                                Date & Channel
-                              </p>
-                              <p className="text-sm font-medium">{timestamp !== "N/A" ? formatDateTime(timestamp) : "N/A"}</p>
-                              <p className="text-sm text-muted-foreground">{getChannelSubdisposition()}</p>
-                            </div>
-                          </div>
-
-                          {/* Status & Diagnosis */}
-                          <div className="space-y-3">
-                            <div>
-                              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
-                                Status
-                              </p>
-                              <Badge variant={getStatusBadgeVariant()} className="text-xs font-medium mb-2">
-                                {getStatusForDisplay()}
-                              </Badge>
-                              <p className="text-sm text-muted-foreground">
-                                {preliminaryDiagnosis || "No diagnosis"}
-                              </p>
-                            </div>
-                          </div>
-
-                          {/* Triage Outcome - Only show for inbound calls */}
-                          {!("source" in interaction && interaction.source === "outbound_flow") && (
-                            <div className="space-y-3">
-                              <div>
-                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
-                                  Triage Outcome
-                                </p>
-                                <p className="text-sm font-medium">
-                                  {triageOutcome || "Pending"}
-                                </p>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Action Button */}
-                        <div className="flex-shrink-0">
-                          <Button 
-                            variant="outline"
-                            size="sm"
-                            onClick={() => navigate(`/patient-interaction/${callNumber}`)}
-                            className="hover:bg-primary hover:text-primary-foreground transition-colors"
-                          >
-                            View Details
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )
-              })}
-            </div>
+            <CardTitle>Patient Engagements ({loading || error ? "—" : filteredCases.length})</CardTitle>
+            {!loading && !error && (
+              <CardDescription>
+                Showing {filteredCases.length} of {totalCount} total engagements
+              </CardDescription>
             )}
-          </CardContent>
+          </CardHeader>
+          <CardContent>{renderBody()}</CardContent>
         </Card>
       </div>
     </DashboardLayout>

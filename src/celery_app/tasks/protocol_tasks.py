@@ -10,6 +10,13 @@ from src.models import TriageProtocolsList
 
 logger = logging.getLogger(__name__)
 
+# TODO(schema-migration): see PROTOCOL_UPLOAD_ENABLED in src/api/protocol_engine.py.
+# These tasks rely on TriageProtocolsList.protocol_internal_id / status / extra, which
+# were removed from models.py in 5c6f697. Until the schema decision is made the tasks
+# return a clear failure instead of raising AttributeError.
+PROTOCOL_TASKS_ENABLED = False
+PROTOCOL_TASKS_DISABLED_MESSAGE = "Protocol upload is temporarily disabled pending schema migration"
+
 @celery_app.task(bind=True)
 def parse_protocol(self, protocol_internal_id: str, uploaded_file_content: str) -> Dict[str, Any]:
     """
@@ -22,6 +29,10 @@ def parse_protocol(self, protocol_internal_id: str, uploaded_file_content: str) 
     Returns:
         Dictionary with parsing results
     """
+    if not PROTOCOL_TASKS_ENABLED:
+        logger.warning("parse_protocol called while protocol upload is disabled")
+        return {"success": False, "message": PROTOCOL_TASKS_DISABLED_MESSAGE, "protocol_id": protocol_internal_id}
+
     db_session = SessionLocal()
     
     try:
@@ -105,6 +116,9 @@ def get_protocol_task_status_by_protocol_id(protocol_id: str) -> Dict[str, Any]:
     Returns:
         Dictionary with task status and protocol info
     """
+    if not PROTOCOL_TASKS_ENABLED:
+        return {"found": False, "message": PROTOCOL_TASKS_DISABLED_MESSAGE}
+
     try:
         db_session = SessionLocal()
         

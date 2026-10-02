@@ -11,6 +11,7 @@ interface ConversationHistoryProps {
 
 export function ConversationHistory({ messages, patientName }: ConversationHistoryProps) {
   const formatTime = (timestamp: Date) => {
+    if (!(timestamp instanceof Date) || Number.isNaN(timestamp.getTime())) return ""
     return timestamp.toLocaleTimeString("en-US", { 
       hour: "2-digit", 
       minute: "2-digit" 
@@ -18,7 +19,8 @@ export function ConversationHistory({ messages, patientName }: ConversationHisto
   }
 
   const isAI = (speaker: string) => {
-    return speaker.toLowerCase().includes("ai") || speaker.toLowerCase().includes("assistant")
+    const s = (speaker ?? "").toLowerCase()
+    return s.includes("ai") || s.includes("assistant") || s.includes("bot")
   }
 
   if (!messages || messages.length === 0) {

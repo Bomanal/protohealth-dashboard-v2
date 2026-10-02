@@ -24,8 +24,10 @@ export interface OutboundCallData {
   patients: PatientData[]
   schedulingOption: 'now' | 'best_time' | 'custom'
   customDateTime?: Date
-  selectedProtocol?: string
 }
+
+// Daily room used to join "call now" sessions. Leave unset to only queue calls.
+const DAILY_ROOM_URL: string | undefined = import.meta.env.VITE_DAILY_ROOM_URL || undefined
 
 const STEPS = [
   { id: 1, title: "Identify patients", description: "Patient information" },
@@ -70,18 +72,13 @@ export function TriggerOutboundCallsWizard() {
         patient_context: patient.additionalNotes || null
       }))
 
-      // Prepare call data for API
+      // Prepare call data for API.
+      // Procedure is taken from each patient's call_type (selected_protocol is deprecated and omitted).
       const callRequest = {
         patients: patientData,
         scheduling_option: callData.schedulingOption,
         custom_datetime: callData.customDateTime ? new Date(callData.customDateTime).toISOString() : null,
-        selected_protocol: callData.selectedProtocol || null
       }
-
-      // Debug: log outbound payload for inspection
-      // Note: Contains patient PII; ensure logs are only used in development
-      // eslint-disable-next-line no-console
-      console.debug('[TriggerOutboundCalls] Outbound payload →', callRequest)
 
       // Make API call to create outbound calls
       const response = await fetch('/api/outbound-calls/batch', {
@@ -93,32 +90,16 @@ export function TriggerOutboundCallsWizard() {
       })
 
       if (!response.ok) {
-        // Attempt to parse JSON; if fails, read as text to capture server error
-        let errorMessage = 'Failed to create outbound calls'
-        let parsed: any = null
+        // Surface the server's (generic, PHI-free) error message; never log the payload
+        let errorMessage = `Failed to create outbound calls (HTTP ${response.status})`
         try {
-          parsed = await response.json()
-        } catch (_) {
-          try {
-            const textBody = await response.text()
-            errorMessage = textBody || errorMessage
-          } catch (_) {
-            // ignore
+          const parsed = await response.json()
+          if (parsed?.detail) {
+            errorMessage = typeof parsed.detail === 'string' ? parsed.detail : 'Some patient fields are invalid'
           }
+        } catch {
+          // non-JSON body; keep the generic message
         }
-
-        // If parsed JSON has detail/errors, surface them
-        if (parsed) {
-          // eslint-disable-next-line no-console
-          console.error('[TriggerOutboundCalls] API error response →', parsed)
-          if (parsed.detail) {
-            errorMessage = typeof parsed.detail === 'string' ? parsed.detail : JSON.stringify(parsed.detail)
-          }
-        } else {
-          // eslint-disable-next-line no-console
-          console.error('[TriggerOutboundCalls] API error (non-JSON) →', errorMessage)
-        }
-
         throw new Error(errorMessage)
       }
 
@@ -130,24 +111,29 @@ export function TriggerOutboundCallsWizard() {
         description: `${result.success_count} calls scheduled. ${result.failure_count} failed.`,
       })
 
-      // If triggering now, redirect to provided call URL with context
+      // If triggering now, open the Daily room. Only the call_id is passed (no PHI in the URL).
       if (callData.schedulingOption === 'now' && Array.isArray(result.successful_calls) && result.successful_calls.length > 0) {
         const firstCall = result.successful_calls[0]
-        const params = new URLSearchParams()
-        if (firstCall?.call_id) params.set('call_id', String(firstCall.call_id))
-        if (firstCall?.patient_id) params.set('patient_id', String(firstCall.patient_id))
-        if (firstCall?.patient_name) params.set('patient_name', String(firstCall.patient_name))
-        if (firstCall?.procedure) params.set('procedure', String(firstCall.procedure))
-
-        const targetUrl = `https://proto1demo.daily.co/Xiz1bOdUqkvoHquji258${params.toString() ? `?${params.toString()}` : ''}`
-        window.open(targetUrl, '_blank', 'noopener,noreferrer')
-        return
+        let target: URL | null = null
+        try {
+          target = DAILY_ROOM_URL && firstCall?.call_id ? new URL(DAILY_ROOM_URL) : null
+        } catch {
+          target = null // misconfigured VITE_DAILY_ROOM_URL; fall through to "queued"
+        }
+        if (target) {
+          target.searchParams.set('call_id', String(firstCall.call_id))
+          window.open(target.toString(), '_blank', 'noopener,noreferrer')
+          return
+        }
+        toast({
+          title: "Calls queued",
+          description: "No call room is configured (VITE_DAILY_ROOM_URL), so calls have been queued without opening a room.",
+        })
       }
 
       // Otherwise go back to engagements page
       navigate('/all-engagements')
     } catch (error) {
-      console.error('Error creating outbound calls:', error)
       toast({
         title: "Error creating outbound calls",
         description: error instanceof Error ? error.message : "An unexpected error occurred",

@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ProtocolData } from "../CreateProtocolWizard"
 import { ArrowLeft, ArrowRight, Upload, FileText, Loader2 } from "lucide-react"
-import { useProtocolEngine } from "@/hooks/useProtocolEngine"
+import { useProtocolEngine, ProtocolEngineDisabledError } from "@/hooks/useProtocolEngine"
+import { ProtocolUploadDisabledNotice } from "./ProtocolUploadDisabledNotice"
 
 
 interface UploadProtocolStepProps {
@@ -17,7 +18,8 @@ export function UploadProtocolStep({ data, onUpdate, onNext, onBack }: UploadPro
   const [dragActive, setDragActive] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [processingStatus, setProcessingStatus] = useState('')
-  const { uploadProtocolData, loading, error } = useProtocolEngine()
+  const { uploadProtocolData, getProtocolStatus, loading, error, disabled } = useProtocolEngine()
+  const [stepError, setStepError] = useState<string | null>(null)
 
 
   const handleFileUpload = (file: File) => {
@@ -53,57 +55,54 @@ export function UploadProtocolStep({ data, onUpdate, onNext, onBack }: UploadPro
   }
 
   const handleNext = async () => {
-    if (data.uploadedFile && data.protocol_internal_id) {
-      try {
-        setIsProcessing(true)
-        setProcessingStatus('Uploading file...')
-        
-        const response = await uploadProtocolData(data.protocol_internal_id, data.uploadedFile)
-        
-        onUpdate({ 
-          uploadMethod: 'file',
-          task_id: response.task_id
-        })
-        
-        setProcessingStatus('Processing protocol with AI...')
-        await pollForCompletion(data.protocol_internal_id)
-        
-        setProcessingStatus('Processing complete!')
-        onNext()
-      } catch (err) {
-        console.error('Failed to upload protocol data:', err)
-        setProcessingStatus('Processing failed')
-      } finally {
-        setIsProcessing(false)
+    setStepError(null)
+    if (!data.uploadedFile) return
+    if (!data.protocol_internal_id) {
+      setStepError("This protocol hasn't been created yet. Go back to the previous step and create it first.")
+      return
+    }
+    try {
+      setIsProcessing(true)
+      setProcessingStatus('Uploading file...')
+
+      const response = await uploadProtocolData(data.protocol_internal_id, data.uploadedFile)
+
+      onUpdate({
+        uploadMethod: 'file',
+        task_id: response.task_id
+      })
+
+      setProcessingStatus('Processing protocol with AI...')
+      await pollForCompletion(data.protocol_internal_id)
+
+      setProcessingStatus('Processing complete!')
+      onNext()
+    } catch (err) {
+      setProcessingStatus('')
+      // Hook-level errors (HTTP failures, 501 disabled) are shown via `error`/`disabled`
+      if (!(err instanceof ProtocolEngineDisabledError)) {
+        setStepError(err instanceof Error ? err.message : 'Protocol processing failed')
       }
+    } finally {
+      setIsProcessing(false)
     }
   }
 
   const pollForCompletion = async (protocolInternalId: string) => {
-    const maxAttempts = 120 // 10 minutes max wait (120 attempts * 5 seconds = 600 seconds = 10 minutes)
-    let attempts = 0
-    
-    while (attempts < maxAttempts) {
-      try {
-        const response = await fetch(`/protocol_engine/status/${protocolInternalId}`)
-        const statusData = await response.json()
-        
-        if (statusData.protocol_status === 'COMPLETED') {
-          console.log('Protocol processing completed successfully')
-          return
-        } else if (statusData.protocol_status === 'FAILED') {
-          throw new Error('Protocol processing failed')
-        }
-        
-        // Wait 5 seconds before next poll
-        await new Promise(resolve => setTimeout(resolve, 5000))
-        attempts++
-      } catch (err) {
-        console.error('Error polling status:', err)
-        throw err
+    const maxAttempts = 120 // 10 minutes max wait (120 attempts * 5 seconds)
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      // getProtocolStatus throws on any non-OK response (incl. 501), which stops polling
+      const statusData = await getProtocolStatus(protocolInternalId)
+
+      if (statusData.protocol_status === 'COMPLETED') {
+        return
       }
+      if (statusData.protocol_status === 'FAILED') {
+        throw new Error('Protocol processing failed')
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 5000))
     }
-    
     throw new Error('Protocol processing timed out after 10 minutes')
   }
 
@@ -186,25 +185,34 @@ export function UploadProtocolStep({ data, onUpdate, onNext, onBack }: UploadPro
           </div>
 
           <div className="space-y-4">
-            {error && (
+            {disabled ? (
+              <ProtocolUploadDisabledNotice message={error} />
+            ) : (stepError || error) && (
               <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
-                <p className="text-sm text-destructive">{error}</p>
+                <p className="text-sm text-destructive">{stepError || error}</p>
               </div>
+            )}
+
+            {isProcessing && processingStatus && (
+              <p className="text-sm text-muted-foreground flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {processingStatus}
+              </p>
             )}
             
             <div className="flex justify-between pt-4">
-              <Button variant="outline" onClick={onBack} disabled={loading}>
+              <Button variant="outline" onClick={onBack} disabled={loading || isProcessing}>
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back
               </Button>
               <Button 
                 onClick={handleNext}
-                disabled={!data.uploadedFile || loading}
+                disabled={!data.uploadedFile || loading || isProcessing || disabled}
               >
-                {loading ? (
+                {loading || isProcessing ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Uploading...
+                    {processingStatus || 'Uploading...'}
                   </>
                 ) : (
                   <>

@@ -10,8 +10,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { CreateProtocolStep } from "./protocol-wizard/CreateProtocolStep"
 import { UploadProtocolStep } from "./protocol-wizard/UploadProtocolStep"
 import { VisualizeProtocolStep } from "./protocol-wizard/VisualizeProtocolStep"
-import { ReviewSimulationsStep } from "./protocol-wizard/ReviewSimulationsStep"
-import { RunSimulationsStep } from "./protocol-wizard/RunSimulationsStep"
 
 export interface ProtocolData {
   name: string

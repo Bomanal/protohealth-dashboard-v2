@@ -9,7 +9,33 @@ from src import models
 from database import get_db
 from src.celery_app.tasks.protocol_tasks import parse_protocol, get_protocol_task_status_by_protocol_id
 
-router = APIRouter(prefix="/protocol_engine", tags=["protocol_engine"])
+# ---------------------------------------------------------------------------
+# TODO(schema-migration): Protocol upload is disabled.
+# Commit 5c6f697 removed `protocol_internal_id`, `status` and `extra` from
+# models.TriageProtocolsList, but the endpoints below (and
+# src/celery_app/tasks/protocol_tasks.py) still depend on them, so every call
+# raised AttributeError -> HTTP 500. The live DB schema for
+# triage_protocols_list is unknown, so the columns are intentionally NOT
+# restored here. Once the schema decision is made (restore the columns via an
+# Alembic migration, or move upload state to a separate table), update
+# models.py accordingly and set PROTOCOL_UPLOAD_ENABLED = True.
+# ---------------------------------------------------------------------------
+PROTOCOL_UPLOAD_ENABLED = False
+PROTOCOL_UPLOAD_DISABLED_DETAIL = "Protocol upload is temporarily disabled pending schema migration"
+
+
+def require_protocol_upload_enabled() -> None:
+    """Fail fast with 501 instead of crashing on missing model attributes."""
+    if not PROTOCOL_UPLOAD_ENABLED:
+        raise HTTPException(status_code=501, detail=PROTOCOL_UPLOAD_DISABLED_DETAIL)
+
+
+# Router-level dependency runs before request-body validation and the handler body.
+router = APIRouter(
+    prefix="/protocol_engine",
+    tags=["protocol_engine"],
+    dependencies=[Depends(require_protocol_upload_enabled)],
+)
 
 class CreateProtocolRequest(BaseModel):
     protocol_internal_id: str

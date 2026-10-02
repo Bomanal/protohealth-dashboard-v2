@@ -8,9 +8,17 @@ load_dotenv(".env.local")
 
 app = FastAPI()
 
+# Comma-separated list of allowed browser origins. A wildcard is not allowed
+# together with allow_credentials=True.
+CORS_ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:8080").split(",")
+    if origin.strip() and origin.strip() != "*"
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Change this to your frontend URL in production
+    allow_origins=CORS_ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

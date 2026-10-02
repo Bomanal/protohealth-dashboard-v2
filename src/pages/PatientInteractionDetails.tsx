@@ -1,77 +1,152 @@
-import { useParams } from "react-router-dom"
-import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom"
+import { useCallback, useEffect, useState } from "react"
 import { DashboardLayout } from "@/components/DashboardLayout"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { StatusBadge } from "@/components/StatusBadge"
 import { ConversationHistory } from "@/components/ConversationHistory"
-import { mockPatientInteractions } from "@/data/mockData"
-import { 
-  ArrowLeft, 
-  Phone, 
-  MessageSquare, 
+import type { ConversationMessage } from "@/types/healthcare"
+import {
+  ArrowLeft,
+  Phone,
+  MessageSquare,
   Calendar,
   AlertTriangle,
   User,
   Clock,
-  Building,
   FileText,
-  Edit
+  Loader2,
+  RefreshCw,
 } from "lucide-react"
 
+/** Shape returned by GET /case-details/{session_id} (src/api/case_details.py). */
 type CaseDetailsItem = {
-  call_id: string;
-  phone_number: string;
-  user_name: string | null;
-  last_call: string | null;
-  status: string | null;
-  preliminary_diagnosis: string | null;
-  triage_outcome: string | null;
-  call_log: any;
-  summary: string | null;
-  medical_history: string | null;
-  issue: string | null;
-  dob: string | null;
-};
+  call_id: string
+  phone_number: string
+  user_name: string | null
+  last_call: string | null
+  status: string | null
+  preliminary_diagnosis: string | null
+  triage_outcome: string | null
+  call_log: unknown
+  summary: string | null
+  medical_history: string | null
+  issue: string | null
+  dob: string | null
+}
+
+type LoadState =
+  | { kind: "loading" }
+  | { kind: "not_found" }
+  | { kind: "error"; message: string }
+  | { kind: "loaded"; details: CaseDetailsItem }
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+const STATUS_LABELS: Record<string, string> = {
+  completed: "Completed",
+  abandoned: "Abandoned",
+  error: "Error",
+}
+
+const formatDateTime = (value: string | null) => {
+  if (!value) return "—"
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return "—"
+  return d.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+}
+
+/** Normalise the JSONB transcript into ConversationMessage[]; unknown shapes yield []. */
+const toMessages = (callLog: unknown): ConversationMessage[] => {
+  if (!Array.isArray(callLog)) return []
+  return callLog
+    .filter((m): m is Record<string, unknown> => typeof m === "object" && m !== null)
+    .map((m) => ({
+      speaker: String(m.speaker ?? m.role ?? "Unknown"),
+      message: String(m.message ?? m.content ?? m.text ?? ""),
+      timestamp: new Date(typeof m.timestamp === "string" || typeof m.timestamp === "number" ? m.timestamp : NaN),
+    }))
+}
 
 export default function PatientInteractionDetails() {
   const { id } = useParams()
-  const [details, setDetails] = useState<CaseDetailsItem | null>(null)
-  const [loading, setLoading] = useState(true)
-  const interaction = mockPatientInteractions.find(i => i.id === id)
+  const navigate = useNavigate()
+  const [state, setState] = useState<LoadState>({ kind: "loading" })
 
-  useEffect(() => {
-    if (!id) {
-      setLoading(false)
+  const load = useCallback(async (signal?: AbortSignal) => {
+    if (!id || !UUID_RE.test(id)) {
+      setState({ kind: "not_found" })
       return
     }
-    // Only fetch if it's a UUID (API data)
-    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
-              fetch(`/case-details/${id}`)
-        .then(res => res.json())
-        .then(data => {
-          setDetails(data)
-          setLoading(false)
-        })
-        .catch(err => {
-          console.error("Failed to fetch case details:", err)
-          setLoading(false)
-        })
-    } else {
-      setLoading(false)
+    setState({ kind: "loading" })
+    try {
+      const res = await fetch(`/case-details/${id}`, { signal })
+      if (res.status === 404) {
+        setState({ kind: "not_found" })
+        return
+      }
+      if (!res.ok) {
+        throw new Error(`Server responded with HTTP ${res.status}`)
+      }
+      const details = (await res.json()) as CaseDetailsItem
+      setState({ kind: "loaded", details })
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return
+      setState({ kind: "error", message: err instanceof Error ? err.message : "Failed to load case details" })
     }
   }, [id])
 
-  if (loading) {
+  useEffect(() => {
+    const controller = new AbortController()
+    load(controller.signal)
+    return () => controller.abort()
+  }, [load])
+
+  const backButton = (
+    <Button variant="ghost" size="sm" onClick={() => navigate("/all-engagements")}>
+      <ArrowLeft className="h-4 w-4 mr-1" />
+      Back to Interactions
+    </Button>
+  )
+
+  if (state.kind !== "loaded") {
     return (
       <DashboardLayout>
         <div className="space-y-6">
+          {backButton}
           <Card>
             <CardContent className="text-center py-8">
-              <AlertTriangle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Loading...</h3>
-              <p className="text-muted-foreground">Fetching case details.</p>
+              {state.kind === "loading" && (
+                <>
+                  <Loader2 className="h-12 w-12 text-muted-foreground mx-auto mb-4 animate-spin" />
+                  <h3 className="text-lg font-semibold mb-2">Loading...</h3>
+                  <p className="text-muted-foreground">Fetching case details.</p>
+                </>
+              )}
+              {state.kind === "not_found" && (
+                <>
+                  <AlertTriangle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Interaction Not Found</h3>
+                  <p className="text-muted-foreground">The requested patient interaction could not be found.</p>
+                </>
+              )}
+              {state.kind === "error" && (
+                <>
+                  <AlertTriangle className="h-12 w-12 text-destructive mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Couldn't load this interaction</h3>
+                  <p className="text-muted-foreground mb-4">{state.message}</p>
+                  <Button variant="outline" onClick={() => load()}>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Retry
+                  </Button>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -79,96 +154,9 @@ export default function PatientInteractionDetails() {
     )
   }
 
-  if (!details && !interaction) {
-    return (
-      <DashboardLayout>
-        <div className="space-y-6">
-          <Card>
-            <CardContent className="text-center py-8">
-              <AlertTriangle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Interaction Not Found</h3>
-              <p className="text-muted-foreground">The requested patient interaction could not be found.</p>
-            </CardContent>
-          </Card>
-        </div>
-      </DashboardLayout>
-    )
-  }
-
-  // Use API data if available, otherwise mock data
-  const data = details || interaction
-
-  const formatDateTime = (date: Date | string) => {
-    const dateObj = typeof date === "string" ? new Date(date) : date
-    return dateObj.toLocaleDateString("en-US", { 
-      month: "long", 
-      day: "numeric", 
-      year: "numeric",
-      hour: "2-digit", 
-      minute: "2-digit" 
-    })
-  }
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "high": return "destructive"
-      case "medium": return "secondary"
-      case "low": return "outline"
-      default: return "secondary"
-    }
-  }
-
-  const getSourceIcon = (source: string) => {
-    switch (source) {
-      case "inbound_phone": return <Phone className="h-4 w-4" />
-      case "inbound_text": return <MessageSquare className="h-4 w-4" />
-      case "inbound_email": return <MessageSquare className="h-4 w-4" />
-      case "inbound_scheduling": return <Calendar className="h-4 w-4" />
-      case "outbound_flow": return <FileText className="h-4 w-4" />
-      default: return <MessageSquare className="h-4 w-4" />
-    }
-  }
-
-  const getChannelType = (source: string) => {
-    switch (source) {
-      case "outbound_flow": return "Outbound"
-      case "inbound_phone": return "Phone"
-      case "inbound_text": return "Text"
-      case "inbound_email": return "Email"
-      case "inbound_scheduling": return "Scheduling"
-      default: return source
-    }
-  }
-
-  const getStatusForDisplay = () => {
-    if ("source" in data && data.source === "outbound_flow") {
-      switch (data.status) {
-        case "needs_action": return "Needs action"
-        case "engaged": return "Completed"
-        case "message_sent": return "No contact"
-        case "in_queue": return "In queue"
-        case "dropped": return "Dropped"
-        case "reschedule_requested": return "Reschedule requested"
-        case "nurse_callback_needed": return "Nurse callback needed"
-        case "abandoned": return "Abandoned"
-        default: return data.status
-      }
-    } else {
-      // Inbound
-      switch (data.status) {
-        case "needs_action": return "Needs action"
-        case "engaged": return "Completed"
-        case "scheduled": return "Completed"
-        case "in_queue": return "Abandoned"
-        default: return data.status
-      }
-    }
-  }
-
-  const shouldShowTriageOutcome = () => {
-    const status = getStatusForDisplay().toLowerCase()
-    return status === "completed" || status === "needs action"
-  }
+  const data = state.details
+  const displayName = data.user_name || "Unknown caller"
+  const messages = toMessages(data.call_log)
 
   return (
     <DashboardLayout>
@@ -176,35 +164,21 @@ export default function PatientInteractionDetails() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm">
-              <ArrowLeft className="h-4 w-4 mr-1" />
-              Back to Interactions
-            </Button>
+            {backButton}
             <div>
               <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
                 Patient Interaction Details
               </h1>
               <p className="text-muted-foreground mt-1">
-                {"user_name" in data ? (data.user_name || "John Smith") : ("patientName" in data ? data.patientName : "John Smith")} • {"patientId" in data ? data.patientId : ("call_id" in data ? data.call_id : "N/A")}
+                {displayName} • <span className="font-mono text-sm">{data.call_id}</span>
               </p>
             </div>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline">
-              <Edit className="h-4 w-4 mr-1" />
-              Edit Notes
-            </Button>
-            <Button>
-              <Phone className="h-4 w-4 mr-1" />
-              Call Patient
-            </Button>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Details */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Overview Card */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -216,188 +190,83 @@ export default function PatientInteractionDetails() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Patient Name</label>
-                    <p className="text-lg font-semibold">{"user_name" in data ? (data.user_name || "John Smith") : ("patientName" in data ? data.patientName : "John Smith")}</p>
+                    <p className="text-lg font-semibold">{displayName}</p>
                   </div>
                   <div>
-                                      <label className="text-sm font-medium text-muted-foreground">DOB</label>
-                  <p className="text-lg">{"dob" in data ? data.dob : ("dateOfBirth" in data ? data.dateOfBirth : "1985-03-15")}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Patient ID</label>
-                    <p className="text-lg font-mono">{"patientId" in data ? data.patientId : (Math.floor(Math.random() * 90000 + 10000).toString())}</p>
+                    <label className="text-sm font-medium text-muted-foreground">DOB</label>
+                    <p className="text-lg">{data.dob || "—"}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Phone Number</label>
-                    <p className="text-lg">{"phone_number" in data ? data.phone_number : ("phoneNumber" in data ? data.phoneNumber : "N/A")}</p>
+                    <p className="text-lg">{data.phone_number || "—"}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">Call Number</label>
-                    <p className="text-lg font-semibold">{"call_id" in data ? `#${data.call_id}` : ("callNumber" in data ? `#${data.callNumber}` : "N/A")}</p>
+                    <label className="text-sm font-medium text-muted-foreground">Session ID</label>
+                    <p className="text-sm font-mono break-all">{data.call_id}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Date of Interaction</label>
-                    <p className="text-lg">{"timestamp" in data ? formatDateTime(data.timestamp) : ("last_call" in data && data.last_call ? formatDateTime(data.last_call) : "N/A")}</p>
+                    <p className="text-lg">{formatDateTime(data.last_call)}</p>
                   </div>
-                  {"source" in data && data.source === "outbound_flow" ? (
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">Outbound call type</label>
-                      <p className="text-lg">{data.sourceDetail || "Outbound Flow"}</p>
-                    </div>
-                  ) : (
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">Channel Subdisposition</label>
-                      <p className="text-lg">
-                        {"source" in data ? data.source.replace("_", " ") : "N/A"}
-                      </p>
-                    </div>
-                  )}
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Channel</label>
                     <div className="flex items-center gap-2 mt-1">
-                      {"source" in data ? getSourceIcon(data.source) : <MessageSquare className="h-4 w-4" />}
-                      <span className="text-lg">
-                        {"source" in data && data.source === "outbound_flow" ? "Outbound" : 
-                         ("source" in data ? getChannelType(data.source) : "N/A")}
-                      </span>
+                      <Phone className="h-4 w-4" />
+                      <span className="text-lg">Inbound phone (triage)</span>
                     </div>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Status</label>
                     <div className="mt-1">
                       <Badge variant="outline" className="text-sm">
-                        {getStatusForDisplay()}
+                        {data.status ? STATUS_LABELS[data.status] ?? data.status : "Unknown"}
                       </Badge>
                     </div>
                   </div>
-                  {/* Show different fields for outbound vs inbound calls */}
-                  {"source" in data && data.source === "outbound_flow" ? (
-                    <>
-                      <div>
-                        <label className="text-sm font-medium text-muted-foreground">Name of person connected with</label>
-                        <p className="text-lg">{(data as any).connectedPersonName || "—"}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-muted-foreground">Relation of the person connected with</label>
-                        <p className="text-lg">{(data as any).connectedPersonRelation || "—"}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-muted-foreground">Did call complete?</label>
-                        <p className="text-lg">{(data as any).callCompleted ? "Yes" : "No"}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-muted-foreground">Patient satisfied?</label>
-                        <p className="text-lg">{(data as any).patientSatisfied ? "Yes" : "No"}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-muted-foreground">Confidence level</label>
-                        <p className="text-lg">{(data as any).confidenceLevel || "—"}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-muted-foreground">Follow up needed?</label>
-                        <p className="text-lg">{(data as any).followUpNeeded ? "Yes" : "No"}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-muted-foreground">Reschedule requested?</label>
-                        <p className="text-lg">{(data as any).rescheduleRequested ? "Yes" : "No"}</p>
-                      </div>
-                      {(data as any).rescheduleRequested && (data as any).rescheduleDateTime && (
-                        <div>
-                          <label className="text-sm font-medium text-muted-foreground">Reschedule date and time</label>
-                          <p className="text-lg">{formatDateTime((data as any).rescheduleDateTime)}</p>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <div>
-                        <label className="text-sm font-medium text-muted-foreground">Preliminary Diagnosis</label>
-                        <p className="text-lg">{"preliminary_diagnosis" in data ? data.preliminary_diagnosis : ("preliminaryDiagnosis" in data ? data.preliminaryDiagnosis : "—")}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-muted-foreground">Triage Outcome</label>
-                        <p className="text-lg">
-                          {"triage_outcome" in data ? data.triage_outcome : ("triageOutcome" in data ? data.triageOutcome : "—")}
-                        </p>
-                      </div>
-                    </>
-                  )}
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Preliminary Diagnosis</label>
+                    <p className="text-lg">{data.preliminary_diagnosis || "—"}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Triage Outcome</label>
+                    <p className="text-lg">{data.triage_outcome || "—"}</p>
+                  </div>
                 </div>
 
-                {/* Additional questions and concerns - Only for outbound calls */}
-                {"source" in data && data.source === "outbound_flow" && (
-                  <>
-                    {(data as any).additionalQuestions && (
-                      <div>
-                        <label className="text-sm font-medium text-muted-foreground">Additional questions from patient</label>
-                        <div className="mt-2 p-4 bg-muted/50 rounded-lg">
-                          <p className="text-sm leading-relaxed">{(data as any).additionalQuestions}</p>
-                        </div>
-                      </div>
-                    )}
-                    {(data as any).concernsRaised && (
-                      <div>
-                        <label className="text-sm font-medium text-muted-foreground">Concerns raised</label>
-                        <div className="mt-2 p-4 bg-warning/10 border border-warning/20 rounded-lg">
-                          <p className="text-sm leading-relaxed">{(data as any).concernsRaised}</p>
-                        </div>
-                      </div>
-                    )}
-                  </>
+                {data.summary && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Clinical Summary</label>
+                    <div className="mt-2 p-4 bg-muted/50 rounded-lg">
+                      <p className="text-sm leading-relaxed">{data.summary}</p>
+                    </div>
+                  </div>
                 )}
 
-                {/* Clinical Summary and Patient Issue - Only for inbound calls */}
-                {!("source" in data && data.source === "outbound_flow") && (
-                  <>
-                    {(("summary" in data && data.summary) || ("clinicalSummary" in data && data.clinicalSummary)) && (
-                      <div>
-                        <label className="text-sm font-medium text-muted-foreground">Clinical Summary</label>
-                        <div className="mt-2 p-4 bg-muted/50 rounded-lg">
-                          <p className="text-sm leading-relaxed">{"summary" in data ? data.summary : data.clinicalSummary}</p>
-                        </div>
-                      </div>
-                    )}
-
-                    {(("issue" in data && data.issue) || ("patientIssue" in data && data.patientIssue)) && (
-                      <div>
-                        <label className="text-sm font-medium text-muted-foreground">Patient Issue</label>
-                        <div className="mt-2 p-4 bg-warning/10 border border-warning/20 rounded-lg">
-                          <p className="text-sm leading-relaxed">{"issue" in data ? data.issue : data.patientIssue}</p>
-                        </div>
-                      </div>
-                    )}
-                  </>
+                {data.issue && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Patient Issue</label>
+                    <div className="mt-2 p-4 bg-warning/10 border border-warning/20 rounded-lg">
+                      <p className="text-sm leading-relaxed">{data.issue}</p>
+                    </div>
+                  </div>
                 )}
 
-                {/* Medical History */}
-                {(("medical_history" in data && data.medical_history) || ("medicalHistory" in data && data.medicalHistory)) && (
+                {data.medical_history && (
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Medical History</label>
                     <div className="mt-2 p-4 bg-info/10 border border-info/20 rounded-lg">
-                      <p className="text-sm leading-relaxed">{"medical_history" in data ? data.medical_history : data.medicalHistory}</p>
+                      <p className="text-sm leading-relaxed">{data.medical_history}</p>
                     </div>
                   </div>
                 )}
               </CardContent>
             </Card>
 
-            {/* Conversation History */}
-            {(("call_log" in data && data.call_log) || ("conversationHistory" in data && (data as any).conversationHistory)) && (
-              <ConversationHistory 
-                messages={("call_log" in data && data.call_log) ? 
-                  data.call_log.map((msg: any) => ({
-                    ...msg,
-                    timestamp: new Date(msg.timestamp)
-                  })) : 
-                  (data as any).conversationHistory
-                }
-                patientName={"user_name" in data ? (data.user_name || "John Smith") : ("patientName" in data ? data.patientName : "John Smith")}
-              />
-            )}
+            <ConversationHistory messages={messages} patientName={displayName} />
           </div>
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* Timeline */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -409,51 +278,38 @@ export default function PatientInteractionDetails() {
                 <div className="flex items-start gap-3">
                   <div className="w-2 h-2 rounded-full bg-primary mt-2" />
                   <div>
-                    <p className="font-medium">Interaction Created</p>
-                    <p className="text-sm text-muted-foreground">
-                      {"timestamp" in data ? formatDateTime(data.timestamp) : ("last_call" in data && data.last_call ? formatDateTime(data.last_call) : "N/A")}
-                    </p>
+                    <p className="font-medium">Call ended</p>
+                    <p className="text-sm text-muted-foreground">{formatDateTime(data.last_call)}</p>
                   </div>
                 </div>
-                {("lastContact" in data && data.lastContact) && (
-                  <div className="flex items-start gap-3">
-                    <div className="w-2 h-2 rounded-full bg-success mt-2" />
-                    <div>
-                      <p className="font-medium">Last Contact</p>
-                      <p className="text-sm text-muted-foreground">
-                        {formatDateTime(data.lastContact)}
-                      </p>
-                    </div>
-                  </div>
-                )}
               </CardContent>
             </Card>
 
-            {/* Actions */}
+            {/* Actions are placeholders until the workflow backend exists */}
             <Card>
               <CardHeader>
                 <CardTitle>Quick Actions</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <Button className="w-full" variant="outline">
+                <p className="text-xs text-muted-foreground">Not yet available.</p>
+                <Button className="w-full" variant="outline" disabled>
                   <Phone className="h-4 w-4 mr-2" />
                   Call Patient
                 </Button>
-                <Button className="w-full" variant="outline">
+                <Button className="w-full" variant="outline" disabled>
                   <MessageSquare className="h-4 w-4 mr-2" />
                   Send Message
                 </Button>
-                <Button className="w-full" variant="outline">
+                <Button className="w-full" variant="outline" disabled>
                   <Calendar className="h-4 w-4 mr-2" />
                   Schedule Follow-up
                 </Button>
-                <Button className="w-full" variant="outline">
+                <Button className="w-full" variant="outline" disabled>
                   <FileText className="h-4 w-4 mr-2" />
                   Add Clinical Note
                 </Button>
               </CardContent>
             </Card>
-
           </div>
         </div>
       </div>

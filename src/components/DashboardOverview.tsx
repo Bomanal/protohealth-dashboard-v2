@@ -1,4 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { DemoDataBadge } from "@/components/DemoDataBadge"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -38,6 +39,7 @@ export function DashboardOverview() {
           <h1 className="text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
             Dashboard Overview
           </h1>
+          <DemoDataBadge className="mt-2" />
           <p className="text-muted-foreground text-lg">Monitor AI agent activity and patient interactions</p>
         </div>
         <div className="flex gap-3">

@@ -6,13 +6,13 @@ export const useInboundFlowMonitor = () => {
   const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([]);
 
   const handleWebSocketMessage = useCallback((message: WebSocketMessage) => {
-    console.log('Received data:', message);
-    
     if (message.type === 'initial_state' || message.type === 'state_update') {
       setCurrentState(message.data);
       
       // Add to activity log
-      const timestamp = new Date(message.data.timestamp).toLocaleTimeString();
+      // Monitor may send an empty/invalid timestamp; fall back to receive time
+      const parsed = message.data.timestamp ? new Date(message.data.timestamp) : null;
+      const timestamp = (parsed && !Number.isNaN(parsed.getTime()) ? parsed : new Date()).toLocaleTimeString();
       const context = message.data.context || 'state_update';
       
       setActivityLog(prev => {

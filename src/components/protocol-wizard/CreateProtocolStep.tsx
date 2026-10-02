@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ProtocolData } from "../CreateProtocolWizard"
 import { ArrowRight, FileText, Loader2 } from "lucide-react"
 import { useProtocolEngine } from "@/hooks/useProtocolEngine"
+import { ProtocolUploadDisabledNotice } from "./ProtocolUploadDisabledNotice"
 
 
 interface CreateProtocolStepProps {
@@ -18,7 +19,7 @@ interface CreateProtocolStepProps {
 
 export function CreateProtocolStep({ data, onUpdate, onNext }: CreateProtocolStepProps) {
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const { createProtocol, loading, error } = useProtocolEngine()
+  const { createProtocol, loading, error, disabled } = useProtocolEngine()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -51,9 +52,8 @@ export function CreateProtocolStep({ data, onUpdate, onNext }: CreateProtocolSte
         })
         
         onNext()
-      } catch (err) {
-        console.error('Failed to create protocol:', err)
-        // Error is handled by the hook
+      } catch {
+        // Error (including the 501 "upload disabled" case) is surfaced via the hook state
       }
 
     }
@@ -157,7 +157,9 @@ export function CreateProtocolStep({ data, onUpdate, onNext }: CreateProtocolSte
                 )}
               </Button>
               
-              {error && (
+              {disabled ? (
+                <ProtocolUploadDisabledNotice message={error} />
+              ) : error && (
                 <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
                   <p className="text-sm text-destructive">{error}</p>
                 </div>

@@ -1,16 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
+import logging
 import uuid
-from datetime import date, time, datetime, timedelta
+from datetime import date, time, datetime, timedelta, timezone
 from enum import Enum
 
 from src import models
 from database import get_db
+from src.api.error_logging import log_error
 from pydantic import BaseModel, validator
 
 router = APIRouter(prefix="/api/outbound-calls", tags=["outbound-calls"])
+logger = logging.getLogger(__name__)
 
 # Enums
 class SchedulingOption(str, Enum):
@@ -40,6 +42,8 @@ class OutboundCallCreateRequest(BaseModel):
     patients: List[PatientData]
     scheduling_option: SchedulingOption
     custom_datetime: Optional[str] = None
+    # Deprecated: the dashboard no longer sends this (per-patient call_type is used instead).
+    # Still accepted for backward compatibility; when set it overrides call_type for every patient.
     selected_protocol: Optional[str] = None
 
     @validator('patients')
@@ -48,8 +52,47 @@ class OutboundCallCreateRequest(BaseModel):
             raise ValueError('At least one patient is required')
         return v
 
+class OutboundCallResponse(BaseModel):
+    call_id: Optional[uuid.UUID] = None
+    patient_id: Optional[uuid.UUID] = None
+    patient_name: Optional[str] = None
+    patient_phone: Optional[str] = None
+    # call_date/call_time are stored in UTC (columns are tz-naive DATE/TIME)
+    call_date: Optional[date] = None
+    call_time: Optional[time] = None
+    event_date: Optional[date] = None
+    call_type: Optional[str] = None
+    procedure: Optional[str] = None
+    doctor_instructions: Optional[str] = None
+    nurse_instructions: Optional[str] = None
+    reschedule_date: Optional[date] = None
+    reschedule_time: Optional[time] = None
+    call_status: Optional[str] = None
+
+class OutboundCallListResponse(BaseModel):
+    calls: List[OutboundCallResponse]
+    total: int
+
+class FailedCall(BaseModel):
+    index: int
+    patient_name: Optional[str] = None
+    phone_number: Optional[str] = None
+    error: str
+
+class BatchOutboundCallResponse(BaseModel):
+    successful_calls: List[OutboundCallResponse]
+    failed_calls: List[FailedCall]
+    total_processed: int
+    success_count: int
+    failure_count: int
+
 # Helpers
 def _parse_iso_datetime_or_400(dt_str: Optional[str]) -> Optional[datetime]:
+    """Parse an ISO-8601 datetime and normalise it to timezone-aware UTC.
+
+    Naive values (no offset) are interpreted as UTC; the dashboard always sends
+    `Date.toISOString()` which carries a trailing Z.
+    """
     if not dt_str:
         return None
     try:
@@ -57,7 +100,9 @@ def _parse_iso_datetime_or_400(dt_str: Optional[str]) -> Optional[datetime]:
         parsed = datetime.fromisoformat(dt_str.replace('Z', '+00:00'))
     except Exception:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Invalid datetime format for custom_datetime')
-    return parsed
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
 
 def _parse_date_or_400(date_str: Optional[str]) -> Optional[date]:
     if not date_str:
@@ -71,45 +116,35 @@ def _parse_date_or_400(date_str: Optional[str]) -> Optional[date]:
 def _digits_only(value: Optional[str]) -> Optional[str]:
     if value is None:
         return None
-    try:
-        return ''.join(ch for ch in value if ch.isdigit())
-    except Exception:
-        return value
+    return ''.join(ch for ch in value if ch.isdigit())
 
-def _serialize_call(call: models.OutboundCalls) -> dict:
-    # Try to include patient fields via relationship
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+def _serialize_call(call: models.OutboundCalls) -> OutboundCallResponse:
+    # Include patient fields via relationship
     patient = getattr(call, 'patient', None)
-    patient_name = getattr(patient, 'name', None) if patient else None
-    patient_phone = getattr(patient, 'phone_number', None) if patient else None
+    summary = getattr(call, 'call_summary', None)
 
-    return {
-        "call_id": str(call.call_id) if call.call_id else None,
-        "patient_id": str(call.patient_id) if call.patient_id else None,
-        "patient_name": patient_name,
-        "patient_phone": patient_phone,
-        "call_date": call.call_date.isoformat() if call.call_date else None,
-        "call_time": call.call_time.isoformat() if call.call_time else None,
-        "event_date": call.event_date.isoformat() if call.event_date else None,
-        "call_type": call.call_type,
-        "procedure": call.Procedure,
-        "doctor_instructions": call.doctor_instructions,
-        "nurse_instructions": call.nurse_instructions,
-        "reschedule_date": call.reschedule_date.isoformat() if call.reschedule_date else None,
-        "reschedule_time": call.reschedule_time.isoformat() if call.reschedule_time else None,
-    }
-
-def _extract_error_detail(exc: Exception) -> str:
-    try:
-        # SQLAlchemy DBAPI errors often have .orig with database message
-        orig = getattr(exc, 'orig', None)
-        if orig is not None:
-            return f"{exc.__class__.__name__}: {orig}"
-        return f"{exc.__class__.__name__}: {str(exc)}"
-    except Exception:
-        return str(exc)
+    return OutboundCallResponse(
+        call_id=call.call_id,
+        patient_id=call.patient_id,
+        patient_name=getattr(patient, 'name', None) if patient else None,
+        patient_phone=getattr(patient, 'phone_number', None) if patient else None,
+        call_date=call.call_date,
+        call_time=call.call_time,
+        event_date=call.event_date,
+        call_type=call.call_type,
+        procedure=call.Procedure,
+        doctor_instructions=call.doctor_instructions,
+        nurse_instructions=call.nurse_instructions,
+        reschedule_date=call.reschedule_date,
+        reschedule_time=call.reschedule_time,
+        call_status=getattr(summary, 'call_status', None) if summary else None,
+    )
 
 # API Endpoints
-@router.post("/batch", response_model=None, status_code=status.HTTP_201_CREATED)
+@router.post("/batch", response_model=BatchOutboundCallResponse, status_code=status.HTTP_201_CREATED)
 def create_batch_outbound_calls(
     call_data: OutboundCallCreateRequest, 
     db: Session = Depends(get_db)
@@ -117,123 +152,127 @@ def create_batch_outbound_calls(
     """
     Create multiple outbound calls for a list of patients.
     Handles patient creation/updates and call scheduling.
-    """
-    successful_calls = []
-    failed_calls = []
-    
-    try:
-        # Normalize custom datetime once
-        custom_dt: Optional[datetime] = _parse_iso_datetime_or_400(call_data.custom_datetime)
 
-        for patient_data in call_data.patients:
+    Each patient is processed inside its own SAVEPOINT so a failure for one
+    patient does not abort the surrounding transaction for the others.
+    """
+    successful_calls: List[models.OutboundCalls] = []
+    failed_calls: List[FailedCall] = []
+
+    # Normalize custom datetime once (timezone-aware UTC)
+    custom_dt: Optional[datetime] = _parse_iso_datetime_or_400(call_data.custom_datetime)
+
+    try:
+        for index, patient_data in enumerate(call_data.patients):
             try:
                 parsed_dob = _parse_date_or_400(patient_data.dob)
                 normalized_phone = _digits_only(patient_data.phone_number)
-                # Debug context for this patient
-                print('[batch] processing patient', {
-                    'name': patient_data.name,
-                    'phone_number': normalized_phone,
-                    'dob': patient_data.dob,
-                    'parsed_dob': parsed_dob.isoformat() if parsed_dob else None,
-                    'gender': patient_data.gender,
-                    'scheduling_option': call_data.scheduling_option,
-                    'custom_datetime': custom_dt.isoformat() if custom_dt else None,
-                    'selected_protocol': call_data.selected_protocol,
-                })
-                # Find or create patient
-                patient = db.query(models.Patients).filter(
-                    models.Patients.phone_number == normalized_phone
-                ).first()
-                
-                if not patient:
-                    # Create new patient (map fields explicitly)
-                    patient = models.Patients(
-                        patient_id=uuid.uuid4(),
-                        name=patient_data.name,
-                        phone_number=normalized_phone,
-                        dob=parsed_dob,
-                        gender=patient_data.gender,
-                        medical_history=patient_data.medical_history,
-                        patient_context=patient_data.patient_context,
-                    )
-                    db.add(patient)
-                    db.flush()  # Get the patient_id without committing
-                else:
-                    # Update existing patient
-                    patient.name = patient_data.name or patient.name
-                    patient.phone_number = normalized_phone or patient.phone_number
-                    patient.dob = parsed_dob if parsed_dob is not None else patient.dob
-                    patient.gender = patient_data.gender or patient.gender
-                    if patient_data.medical_history is not None:
-                        patient.medical_history = patient_data.medical_history
-                    if patient_data.patient_context is not None:
-                        patient.patient_context = patient_data.patient_context
-                
-                # Create outbound call
-                # Prefer selected_protocol from batch payload; fall back to per-patient call_type if provided
-                procedure_value = call_data.selected_protocol or patient_data.call_type
 
-                call = models.OutboundCalls(
-                    call_id=uuid.uuid4(),
-                    patient_id=patient.patient_id,
-                    Procedure=procedure_value,
-                    call_date=date.today() if call_data.scheduling_option == SchedulingOption.NOW else None,
-                    call_time=datetime.now().time() if call_data.scheduling_option == SchedulingOption.NOW else None,
-                    event_date=custom_dt.date() if custom_dt else None
-                )
-                
-                # Set scheduling based on option
-                if call_data.scheduling_option == SchedulingOption.CUSTOM and custom_dt:
-                    call.call_date = custom_dt.date()
-                    call.call_time = custom_dt.time()
-                elif call_data.scheduling_option == SchedulingOption.BEST_TIME:
-                    # For now, schedule for tomorrow at 9 AM
-                    # In production, this would use more sophisticated logic
-                    tomorrow = date.today() + timedelta(days=1)
-                    call.call_date = tomorrow
-                    call.call_time = time(9, 0)
-                
-                db.add(call)
-                db.flush()  # Get the call_id
-                
+                with db.begin_nested():
+                    # Find or create patient
+                    patient = db.query(models.Patients).filter(
+                        models.Patients.phone_number == normalized_phone
+                    ).first()
+
+                    if not patient:
+                        # Create new patient (map fields explicitly)
+                        patient = models.Patients(
+                            patient_id=uuid.uuid4(),
+                            name=patient_data.name,
+                            phone_number=normalized_phone,
+                            dob=parsed_dob,
+                            gender=patient_data.gender,
+                            medical_history=patient_data.medical_history,
+                            patient_context=patient_data.patient_context,
+                        )
+                        db.add(patient)
+                        db.flush()  # Get the patient_id without committing
+                    else:
+                        # Update existing patient
+                        patient.name = patient_data.name or patient.name
+                        patient.phone_number = normalized_phone or patient.phone_number
+                        patient.dob = parsed_dob if parsed_dob is not None else patient.dob
+                        patient.gender = patient_data.gender or patient.gender
+                        if patient_data.medical_history is not None:
+                            patient.medical_history = patient_data.medical_history
+                        if patient_data.patient_context is not None:
+                            patient.patient_context = patient_data.patient_context
+
+                    # Prefer (deprecated) selected_protocol from batch payload; else per-patient call_type
+                    procedure_value = call_data.selected_protocol or patient_data.call_type
+
+                    call = models.OutboundCalls(
+                        call_id=uuid.uuid4(),
+                        patient_id=patient.patient_id,
+                        Procedure=procedure_value,
+                        event_date=custom_dt.date() if custom_dt else None,
+                    )
+
+                    # Set scheduling based on option. All dates/times are UTC.
+                    if call_data.scheduling_option == SchedulingOption.NOW:
+                        now_utc = _utc_now()
+                        call.call_date = now_utc.date()
+                        call.call_time = now_utc.time().replace(tzinfo=None)
+                    elif call_data.scheduling_option == SchedulingOption.CUSTOM and custom_dt:
+                        call.call_date = custom_dt.date()
+                        call.call_time = custom_dt.time().replace(tzinfo=None)
+                    elif call_data.scheduling_option == SchedulingOption.BEST_TIME:
+                        # Placeholder: schedule for tomorrow at 09:00 UTC.
+                        # In production, this would use more sophisticated logic.
+                        call.call_date = _utc_now().date() + timedelta(days=1)
+                        call.call_time = time(9, 0)
+
+                    db.add(call)
+                    db.flush()  # Surface DB errors inside this savepoint
+
                 successful_calls.append(call)
-                
+
+            except HTTPException as e:
+                # Validation error for this patient (safe, generic message)
+                failed_calls.append(FailedCall(
+                    index=index,
+                    patient_name=patient_data.name,
+                    phone_number=patient_data.phone_number,
+                    error=str(e.detail),
+                ))
             except Exception as e:
-                # Log the error for debugging
-                print('[batch] error for patient', patient_data.name, '→', repr(e))
-                failed_calls.append({
-                    "patient_name": patient_data.name,
-                    "phone_number": patient_data.phone_number,
-                    "error": str(e)
-                })
-        
+                log_error(logger, f"[batch] failed to create call for patient index {index}", e)
+                failed_calls.append(FailedCall(
+                    index=index,
+                    patient_name=patient_data.name,
+                    phone_number=patient_data.phone_number,
+                    error="Could not create call for this patient",
+                ))
+
         try:
             db.commit()
         except Exception as e:
             db.rollback()
-            # Log and surface DB error for debugging
-            print('[batch] commit error →', _extract_error_detail(e))
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=_extract_error_detail(e))
+            log_error(logger, "[batch] commit failed", e)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Error saving outbound calls",
+            )
 
-        return {
-            "successful_calls": [_serialize_call(c) for c in successful_calls],
-            "failed_calls": failed_calls,
-            "total_processed": len(call_data.patients),
-            "success_count": len(successful_calls),
-            "failure_count": len(failed_calls)
-        }
-        
+        return BatchOutboundCallResponse(
+            successful_calls=[_serialize_call(c) for c in successful_calls],
+            failed_calls=failed_calls,
+            total_processed=len(call_data.patients),
+            success_count=len(successful_calls),
+            failure_count=len(failed_calls),
+        )
+
     except HTTPException:
         raise
     except Exception as e:
         db.rollback()
-        print('[batch] unhandled error →', _extract_error_detail(e))
+        log_error(logger, "[batch] unhandled error", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error creating batch calls: {_extract_error_detail(e)}"
+            detail="Error creating batch calls",
         )
 
-@router.post("/", response_model=None, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=OutboundCallResponse, status_code=status.HTTP_201_CREATED)
 def create_outbound_call(
     patient_id: uuid.UUID,
     call_type: Optional[str] = None,
@@ -253,13 +292,14 @@ def create_outbound_call(
                 detail="Patient not found"
             )
         
-        # Create call
+        # Create call (defaults are UTC)
+        now_utc = _utc_now()
         call = models.OutboundCalls(
             call_id=uuid.uuid4(),
             patient_id=patient_id,
             Procedure=call_type,
-            call_date=call_date or date.today(),
-            call_time=call_time or datetime.now().time()
+            call_date=call_date or now_utc.date(),
+            call_time=call_time or now_utc.time().replace(tzinfo=None)
         )
         
         db.add(call)
@@ -274,12 +314,13 @@ def create_outbound_call(
         raise
     except Exception as e:
         db.rollback()
+        log_error(logger, "create_outbound_call failed", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error creating call: {str(e)}"
+            detail="Error creating call"
         )
 
-@router.get("/", response_model=None)
+@router.get("/", response_model=OutboundCallListResponse)
 def get_outbound_calls(
     skip: int = 0,
     limit: int = 100,
@@ -290,7 +331,11 @@ def get_outbound_calls(
     Get list of outbound calls with optional filtering and pagination.
     """
     try:
-        query = db.query(models.OutboundCalls).join(models.Patients)
+        query = (
+            db.query(models.OutboundCalls)
+            .join(models.Patients)
+            .options(joinedload(models.OutboundCalls.patient), joinedload(models.OutboundCalls.call_summary))
+        )
         
         if status_filter:
             query = query.join(models.OutboundCallSummary).filter(
@@ -300,18 +345,19 @@ def get_outbound_calls(
         total = query.count()
         calls = query.offset(skip).limit(limit).all()
         
-        return {
-            "calls": calls,
-            "total": total
-        }
+        return OutboundCallListResponse(
+            calls=[_serialize_call(c) for c in calls],
+            total=total,
+        )
         
     except Exception as e:
+        log_error(logger, "get_outbound_calls failed", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving calls: {str(e)}"
+            detail="Error retrieving calls"
         )
 
-@router.get("/{call_id}", response_model=None)
+@router.get("/{call_id}", response_model=OutboundCallResponse)
 def get_outbound_call(call_id: uuid.UUID, db: Session = Depends(get_db)):
     """
     Get a specific outbound call by ID.
@@ -325,17 +371,18 @@ def get_outbound_call(call_id: uuid.UUID, db: Session = Depends(get_db)):
                 detail="Call not found"
             )
         
-        return call
+        return _serialize_call(call)
         
     except HTTPException:
         raise
     except Exception as e:
+        log_error(logger, "get_outbound_call failed", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving call: {str(e)}"
+            detail="Error retrieving call"
         )
 
-@router.put("/{call_id}/status", response_model=None)
+@router.put("/{call_id}/status", response_model=OutboundCallResponse)
 def update_call_status(
     call_id: uuid.UUID,
     new_status: CallStatus,
@@ -373,13 +420,14 @@ def update_call_status(
         db.commit()
         db.refresh(call)
         
-        return call
+        return _serialize_call(call)
         
     except HTTPException:
         raise
     except Exception as e:
         db.rollback()
+        log_error(logger, "update_call_status failed", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error updating call status: {str(e)}"
+            detail="Error updating call status"
         )

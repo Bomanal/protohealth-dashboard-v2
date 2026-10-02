@@ -1,3 +1,8 @@
+"""Canonical database schema for the ProtoAI triage system (plain PostgreSQL 13+).
+
+Shared by the voice bot (this repo) and the dashboard API (protohealth-dashboard-v2/src/models.py must be
+an identical copy). Schema changes go through Alembic migrations in alembic/versions/.
+"""
 from typing import Optional
 
 from sqlalchemy import CheckConstraint, DateTime, ForeignKeyConstraint, Integer, PrimaryKeyConstraint, Text, Time, Uuid, text, String, UniqueConstraint, Index, Boolean, func, Date
@@ -5,7 +10,6 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 import datetime
 import uuid
-
 class Base(DeclarativeBase):
     pass
 
@@ -17,7 +21,7 @@ class Conversations(Base):
         PrimaryKeyConstraint('session_id', name='conversations_pkey')
     )
 
-    session_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, server_default=text('uuid_generate_v4()'))
+    session_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, server_default=text('gen_random_uuid()'))
     user_id: Mapped[str] = mapped_column(Text)
     protocol_name: Mapped[Optional[str]] = mapped_column(Text)
     call_start_time: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime)
@@ -107,6 +111,12 @@ class TriageProtocolsList(Base):
     protocol_id: Mapped[str] = mapped_column(String(4), primary_key=True)
     protocol_name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     protocol_description: Mapped[str] = mapped_column(Text, nullable=False)
+    # Used by the dashboard's protocol upload pipeline
+    protocol_internal_id: Mapped[Optional[str]] = mapped_column(String(100), unique=True)
+    status: Mapped[Optional[str]] = mapped_column(String(50))
+    extra: Mapped[Optional[dict]] = mapped_column(JSONB)
+
+    # Add this relationship
     protocol_threads = relationship("ProtocolThreads", back_populates="protocol")
 
 
@@ -120,8 +130,7 @@ class ProtocolThreads(Base):
 
     thread_id: Mapped[str] = mapped_column(String(4), primary_key=True)
     protocol_id: Mapped[str] = mapped_column(String(4), nullable=False)
-    thread_criticality: Mapped[str] = mapped_column(String(20), nullable=False)  # NEW FIELD
-
+    thread_criticality: Mapped[Optional[str]] = mapped_column(String(20))
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime, server_default=func.now())
 
     # Relationship to TriageProtocolsList
@@ -242,7 +251,7 @@ class Personas(Base):
     thread = relationship("ProtocolThreads")
 
 
-# New tables based on your SQL schema
+# --- Outbound call scheduling (written by the dashboard API) ---
 class Patients(Base):
     __tablename__ = 'patients'
     __table_args__ = (
@@ -251,7 +260,7 @@ class Patients(Base):
         Index('idx_patients_name', 'name')
     )
 
-    patient_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, server_default=text('uuid_generate_v4()'))
+    patient_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, server_default=text('gen_random_uuid()'))
     name: Mapped[Optional[str]] = mapped_column(String(255))
     phone_number: Mapped[Optional[str]] = mapped_column(String(20))
     dob: Mapped[Optional[datetime.date]] = mapped_column(Date)
@@ -323,7 +332,7 @@ class OutboundTranscripts(Base):
         ForeignKeyConstraint(['summary_id'], ['outbound_call_summary.summary_id'], name='fk_call_transcripts_summary_id')
     )
 
-    summary_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, server_default=text('extensions.uuid_generate_v4()'))
+    summary_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, server_default=text('gen_random_uuid()'))
     conversation_transcript: Mapped[Optional[dict]] = mapped_column(JSONB)
     conversation_summary: Mapped[Optional[str]] = mapped_column(Text)
 

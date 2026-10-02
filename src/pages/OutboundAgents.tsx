@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { DemoDataBadge } from "@/components/DemoDataBadge"
 import { DashboardLayout } from "@/components/DashboardLayout"
 import { OutboundFlowCard } from "@/components/OutboundFlowCard"
 import { Button } from "@/components/ui/button"
@@ -51,6 +52,7 @@ export default function OutboundAgents() {
             <h1 className="text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
               Outbound Agents
             </h1>
+            <DemoDataBadge className="mt-2" />
             <p className="text-muted-foreground text-lg">
               Manage AI-driven outbound communication flows and patient outreach
             </p>

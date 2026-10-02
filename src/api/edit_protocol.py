@@ -1,14 +1,17 @@
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+import logging
 from typing import List, Optional
 from pydantic import BaseModel
 from datetime import datetime, timezone
 
 from src import models
 from database import get_db
+from src.api.error_logging import log_error
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 class UpdateThreadNodeValue(BaseModel):
     thread_id: str
@@ -130,9 +133,12 @@ def update_thread_acceptance(protocol_id: str, update_data: UpdateThreadAcceptan
             "timestamp": datetime.utcnow().isoformat()
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to update acceptance: {str(e)}")
+        log_error(logger, "update_thread_acceptance failed", e)
+        raise HTTPException(status_code=500, detail="Failed to update acceptance")
 
 @router.put("/protocol/{protocol_id}/batch-update")
 def batch_update_thread_data(protocol_id: str, updates: dict, db: Session = Depends(get_db)):
@@ -242,8 +248,13 @@ def batch_update_thread_data(protocol_id: str, updates: dict, db: Session = Depe
         # Commit all changes at once
         db.commit()
         
-        return {"batch_results": results, "status": "success", "total_updates": len(results)}
+        # Per-item errors (e.g. unknown thread) are reported inside batch_results with an "error" key;
+        # status is "partial" when any item failed so clients can keep those changes pending.
+        has_errors = any("error" in r for r in results)
+        return {"batch_results": results, "status": "partial" if has_errors else "success", "total_updates": len(results)}
         
     except Exception as e:
+        # Nothing was committed: report a real error status so clients keep their pending changes
         db.rollback()
-        return {"batch_results": results, "status": "error", "error": str(e)}
+        log_error(logger, "batch_update_thread_data failed", e)
+        raise HTTPException(status_code=500, detail="Batch update failed; no changes were saved")

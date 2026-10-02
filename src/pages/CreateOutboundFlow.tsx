@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { DemoDataBadge } from "@/components/DemoDataBadge"
 import { DashboardLayout } from "@/components/DashboardLayout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -145,6 +146,7 @@ ProtoHealth AI Assistant`
             <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
               Create Outbound Flow
             </h1>
+            <DemoDataBadge className="mt-2" />
             <p className="text-muted-foreground">Set up a new AI-driven patient communication flow</p>
           </div>
         </div>

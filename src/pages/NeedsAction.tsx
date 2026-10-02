@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { DemoDataBadge } from "@/components/DemoDataBadge"
 import { DashboardLayout } from "@/components/DashboardLayout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -66,6 +67,7 @@ export default function NeedsAction() {
             <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
               Needs Action
             </h1>
+            <DemoDataBadge className="mt-2" />
             <p className="text-muted-foreground mt-1">
               Patient interactions requiring immediate follow-up
             </p>
